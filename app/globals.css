@@ -75,3 +75,58 @@ button:focus-visible, input:focus-visible, [role="button"]:focus-visible {
     transition-duration: .01ms !important;
   }
 }
+
+
+/* Queue surface polish */
+.queue-glow { box-shadow: 0 18px 50px rgba(31,58,95,.08); }
+@media (prefers-reduced-motion: no-preference) {
+  .queue-glow { transition: box-shadow .25s ease, transform .25s ease; }
+  .queue-glow:hover { box-shadow: 0 22px 60px rgba(31,58,95,.12); }
+}
+
+/* The monitoring dashboard is intentionally desktop-only. */
+.mobile-unavailable { display: none; }
+@media (max-width: 767px) {
+  html, body {
+    overflow: hidden;
+  }
+  .desktop-dashboard { display: none !important; }
+  .mobile-unavailable {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: #f3f2ed;
+  }
+  .mobile-unavailable-card {
+    width: min(100%, 420px);
+    border: 1px solid #dad7cc;
+    border-radius: 20px;
+    background: white;
+    padding: 28px;
+    text-align: center;
+    box-shadow: 0 18px 50px rgba(31,58,95,.08);
+  }
+  .mobile-unavailable-kicker {
+    margin: 0 0 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: rgba(27,36,48,.4);
+  }
+  .mobile-unavailable-card h1 {
+    margin: 0;
+    font-family: Georgia, serif;
+    font-size: 24px;
+    font-weight: 600;
+    color: #1b2430;
+  }
+  .mobile-unavailable-card p:last-child {
+    margin: 10px 0 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: rgba(27,36,48,.55);
+  }
+}

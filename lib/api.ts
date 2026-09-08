@@ -217,6 +217,39 @@ export async function triggerNextScan(
 }
 
 
+export interface ProcessScanResponse {
+  scan_id: string;
+  status: ScanStatus;
+  message?: string;
+}
+
+export async function processSelectedScan(
+  settings: ConnectionSettings,
+  scanId: string,
+  signal?: AbortSignal
+): Promise<ProcessScanResponse> {
+  if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
+  const url = `${settings.baseUrl.replace(/\/$/, "")}/monitor/scans/${encodeURIComponent(scanId)}/process`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined,
+      cache: "no-store",
+      signal,
+    });
+    if (!res.ok) {
+      let detail = `Backend returned ${res.status}`;
+      try { const body = await res.json(); if (typeof body?.detail === "string") detail = body.detail; } catch {}
+      throw new ApiError(detail, res.status);
+    }
+    return res.json() as Promise<ProcessScanResponse>;
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running.");
+  }
+}
+
 export interface MoveScanResponse {
   scan_id: string;
   status: ScanStatus;

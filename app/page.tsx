@@ -5,6 +5,7 @@ import {
   fetchScans,
   fetchStats,
   triggerNextScan,
+  processSelectedScan,
   moveScanToQueue,
   reorderScan,
   deleteScan,
@@ -82,6 +83,8 @@ export default function Home() {
   const [toDate, setToDate] = useState("");
   const [movingScan, setMovingScan] = useState<string | null>(null);
   const [deleteMode, setDeleteMode] = useState(false);
+  const [compact, setCompact] = useState(false);
+  const [showOnlyActive, setShowOnlyActive] = useState(false);
   const [deletingScan, setDeletingScan] = useState<string | null>(null);
 
   const searchRef = useRef(search);
@@ -231,9 +234,29 @@ export default function Home() {
   };
 
   const handleDropScan = async (scanId: string, target: ScanStatus) => {
-    if (target !== "queued" || movingScan) return;
+    if (movingScan) return;
     const scan = scans.find((item) => item.scan_id === scanId);
-    if (!scan || (scan.status !== "failed" && scan.status !== "processing")) return;
+    if (!scan) return;
+
+    if (target === "processing" && scan.status === "queued") {
+      if (stats?.processing) {
+        setTriggerMessage("A scan is already processing. Wait for it to finish before releasing another.");
+        return;
+      }
+      setMovingScan(scanId);
+      setTriggerMessage(null);
+      try {
+        const result = await processSelectedScan(settings, scanId);
+        setTriggerMessage(result.message ?? `Released ${scanId.slice(0, 8)}… for processing`);
+        await refresh(settings);
+      } catch (e) {
+        setTriggerMessage(e instanceof ApiError ? e.message : "Could not release the selected scan.");
+      } finally { setMovingScan(null); }
+      return;
+    }
+
+    if (target !== "queued" || movingScan) return;
+    if (scan.status !== "failed" && scan.status !== "processing") return;
     setMovingScan(scanId);
     setTriggerMessage(null);
     try {
@@ -282,7 +305,7 @@ export default function Home() {
   };
 
   const byStatus = (status: ScanStatus) =>
-    scans.filter((s) => s.status === status);
+    scans.filter((s) => s.status === status && (!showOnlyActive || (s.status === "queued" || s.status === "processing")));
 
   const isSearchActive = search.trim().length > 0;
   const isStale = consecutiveFailures >= STALE_AFTER_FAILURES || authBlocked;
@@ -300,7 +323,15 @@ export default function Home() {
     : "connecting";
 
   return (
-    <main className="h-screen min-h-0 overflow-hidden animate-app-enter bg-paper sm:flex">
+    <>
+      <div className="mobile-unavailable" role="status" aria-live="polite">
+        <div className="mobile-unavailable-card">
+          <p className="mobile-unavailable-kicker">PICD Scan Queue Monitor</p>
+          <h1>Desktop dashboard only</h1>
+          <p>This monitoring dashboard is designed for desktop screens and is not available on mobile devices.</p>
+        </div>
+      </div>
+      <main className="desktop-dashboard h-screen min-h-0 overflow-hidden animate-app-enter bg-paper flex">
       {/* Left rail */}
       <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden bg-blueprint px-5 py-6 text-paper shadow-2xl shadow-blueprint/10 sm:w-64">
         <div className="mb-8">
@@ -386,15 +417,18 @@ export default function Home() {
 
       {/* Main board */}
       <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-paper px-4 py-5 sm:px-6 sm:py-6">
-        <div className="mb-2 flex items-center justify-between">
-          <div>
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <div className="min-w-0">
             <div className="flex items-center gap-3">
               <h1 className="font-display text-xl font-semibold text-ink">Pipeline board</h1>
-              <a href="/analytics" className="rounded-full border border-line bg-white px-3 py-1 text-[11px] font-medium text-ink/60 transition hover:-translate-y-0.5 hover:border-blueprint hover:text-blueprint">Analytics →</a>
+              <span className="hidden rounded-full bg-sage/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-sage sm:inline-flex">manual control</span>
             </div>
-            <p className="mt-1 text-[11px] text-ink/35">Drag failed scans back into the queue. Completed scans are locked.</p>
+            <p className="mt-1 text-[11px] text-ink/35">Drag a queued card to Processing to run that scan. Drag failed/processing cards back to Queue. Completed scans are locked.</p>
           </div>
-          <div className="relative">
+          <div className="flex shrink-0 items-center gap-2">
+            <a href="/analytics" className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] font-medium text-ink/60 transition hover:-translate-y-0.5 hover:border-blueprint hover:text-blueprint sm:inline-flex">Analytics ↗</a>
+            <button onClick={() => setCompact(v => !v)} className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] text-ink/55 transition hover:border-blueprint hover:text-blueprint sm:inline-flex">{compact ? "Comfortable" : "Compact"}</button>
+            <div className="relative">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -410,6 +444,7 @@ export default function Home() {
                 ×
               </button>
             )}
+            </div>
           </div>
         </div>
 
@@ -419,6 +454,7 @@ export default function Home() {
             <button key={key} onClick={() => setDatePreset(key as typeof datePreset)} className={`rounded-full px-2.5 py-1 text-[11px] transition ${datePreset === key ? 'bg-blueprint text-paper shadow-sm' : 'bg-ink/5 text-ink/55 hover:bg-ink/10'}`}>{label}</button>
           ))}
           <button onClick={() => setDatePreset('custom')} className={`rounded-full px-2.5 py-1 text-[11px] transition ${datePreset === 'custom' ? 'bg-blueprint text-paper' : 'bg-ink/5 text-ink/55 hover:bg-ink/10'}`}>Custom</button>
+          <button onClick={() => setShowOnlyActive(v => !v)} className={`ml-auto rounded-full px-2.5 py-1 text-[11px] transition ${showOnlyActive ? 'bg-amber text-ink shadow-sm' : 'bg-ink/5 text-ink/55 hover:bg-ink/10'}`}>{showOnlyActive ? 'Active only' : 'All statuses'}</button>
           {datePreset === 'custom' && <>
             <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="rounded-full border border-line bg-white px-2 py-1 text-[11px]" />
             <span className="text-[10px] text-ink/30">to</span>
@@ -498,6 +534,7 @@ export default function Home() {
                 deleteMode={deleteMode}
                 deletingScan={deletingScan}
                 onDelete={handleDelete}
+                compact={compact}
               />
             ))}
           </div>
@@ -525,6 +562,7 @@ export default function Home() {
         </button>
         {deleteMode && <p className="absolute bottom-14 right-0 whitespace-nowrap rounded-full border border-brick/20 bg-white px-3 py-1.5 text-[10px] font-medium text-brick shadow-md">click or drag a card here</p>}
       </div>
-    </main>
+      </main>
+    </>
   );
 }
