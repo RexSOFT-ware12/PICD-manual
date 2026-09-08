@@ -24,7 +24,7 @@ export default function ConnectionSettingsPanel({
         connection
       </button>
       {open && (
-        <div className="absolute right-0 top-10 z-20 w-80 rounded-lg border border-white/10 bg-[#16202f] p-4 shadow-xl">
+        <div className="absolute left-0 top-10 z-20 w-72 rounded-lg border border-white/10 bg-[#16202f] p-4 shadow-xl">
           <p className="mb-3 font-display text-sm text-paper">
             Backend connection
           </p>
