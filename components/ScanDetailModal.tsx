@@ -25,6 +25,21 @@ function formatDate(iso: string | null): string {
   return d.toLocaleString();
 }
 
+function statusExplanation(status: string, error: string | null): string {
+  if (status === "queued") {
+    return "This scan has been received and safely held in the manual queue. It will not enter Photoshop, Illustrator, Python, or Daz Studio until an operator clicks “Process next scan” on the dashboard.";
+  }
+  if (status === "processing") {
+    return "An operator released this scan from the manual queue and the single pipeline worker is processing it now.";
+  }
+  if (status === "completed") {
+    return "The scan passed through the processing pipeline successfully and its result was recorded.";
+  }
+  return error
+    ? "The pipeline stopped because of the error shown below. Review the reason before retrying the scan."
+    : "The pipeline stopped before completion. Review the scan details and retry when ready.";
+}
+
 function DetailImage({ src, alt }: { src: string; alt: string }) {
   return (
     <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md bg-ink/5">
@@ -106,7 +121,7 @@ export default function ScanDetailModal({
       <div
         role="dialog"
         aria-modal="true"
-        className="animate-pop-in max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-paper p-5 shadow-xl"
+        className="animate-pop-in max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/60 bg-paper p-6 shadow-2xl shadow-ink/20"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -152,7 +167,7 @@ export default function ScanDetailModal({
 
         {scan.status === "failed" && scan.error && (
           <div className="mt-3 rounded bg-brick/10 px-3 py-2 text-[12px] text-brick">
-            <p className="mb-0.5 font-medium">Error</p>
+            <p className="mb-0.5 font-medium">Why processing stopped</p>
             <p className="break-words">{scan.error}</p>
           </div>
         )}

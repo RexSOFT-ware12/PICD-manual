@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import {
   fetchScans,
   fetchStats,
+  triggerNextScan,
   loadSettings,
   saveSettings,
   ApiError,
@@ -71,6 +72,8 @@ export default function Home() {
   // settings, since retrying the same bad key every 5s can't succeed.
   const [authBlocked, setAuthBlocked] = useState(false);
   const [tabVisible, setTabVisible] = useState(true);
+  const [triggering, setTriggering] = useState(false);
+  const [triggerMessage, setTriggerMessage] = useState<string | null>(null);
 
   const searchRef = useRef(search);
   searchRef.current = search;
@@ -192,6 +195,21 @@ export default function Home() {
     setLoadingMore(false);
   };
 
+  const handleTriggerNext = async () => {
+    if (triggering || stats?.processing || (stats?.queue_depth ?? 0) === 0) return;
+    setTriggering(true);
+    setTriggerMessage(null);
+    try {
+      const result = await triggerNextScan(settings);
+      setTriggerMessage(`Released ${result.scan_id.slice(0, 8)}… for processing`);
+      await refresh(settings);
+    } catch (e) {
+      setTriggerMessage(e instanceof ApiError ? e.message : "Could not release the next scan.");
+    } finally {
+      setTriggering(false);
+    }
+  };
+
   const byStatus = (status: ScanStatus) =>
     scans.filter((s) => s.status === status);
 
@@ -211,9 +229,9 @@ export default function Home() {
     : "connecting";
 
   return (
-    <main className="flex min-h-screen">
+    <main className="min-h-screen animate-app-enter bg-paper sm:flex">
       {/* Left rail */}
-      <aside className="flex w-64 shrink-0 flex-col bg-blueprint px-5 py-6 text-paper">
+      <aside className="flex w-full shrink-0 flex-col bg-blueprint px-5 py-6 text-paper shadow-2xl shadow-blueprint/10 sm:w-64">
         <div className="mb-8">
           <p className="font-display text-lg font-semibold leading-tight">
             Scan Queue
@@ -231,14 +249,31 @@ export default function Home() {
           />
         </div>
 
-        <div className="mb-6 rounded-lg border border-white/10 bg-white/5 p-4">
-          <p className="text-[11px] uppercase tracking-wide text-paper/40">
-            Queue depth
+        <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/10 backdrop-blur-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-paper/40">
+                Manual queue
+              </p>
+              <p className="mt-1 font-display text-3xl font-semibold">
+                <AnimatedStat value={stats?.queue_depth ?? null} />
+              </p>
+              <p className="text-[11px] text-paper/40">
+                incoming scans waiting for approval
+              </p>
+            </div>
+            <span className={`mt-1 h-2.5 w-2.5 rounded-full ${stats?.processing ? "animate-pulse bg-amber" : "bg-sage"}`} />
+          </div>
+          <button
+            onClick={handleTriggerNext}
+            disabled={triggering || stats?.processing || (stats?.queue_depth ?? 0) === 0}
+            className="mt-4 w-full rounded-lg bg-paper px-3 py-2.5 text-xs font-semibold text-blueprint shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            {triggering ? "Releasing…" : stats?.processing ? "Processing current scan…" : "Process next scan"}
+          </button>
+          <p className="mt-2 text-center text-[10px] text-paper/30">
+            Nothing processes automatically.
           </p>
-          <p className="font-display text-3xl font-semibold">
-            <AnimatedStat value={stats?.queue_depth ?? null} />
-          </p>
-          <p className="text-[11px] text-paper/40">jobs waiting on the worker</p>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -279,7 +314,7 @@ export default function Home() {
       </aside>
 
       {/* Main board */}
-      <section className="flex min-w-0 flex-1 flex-col bg-paper px-6 py-6">
+      <section className="flex min-w-0 flex-1 flex-col bg-paper px-4 py-5 sm:px-6 sm:py-6">
         <div className="mb-2 flex items-center justify-between">
           <h1 className="font-display text-xl font-semibold text-ink">
             Pipeline board
@@ -302,6 +337,16 @@ export default function Home() {
             )}
           </div>
         </div>
+
+        {triggerMessage && (
+          <div className={`mb-3 animate-fade-in-up rounded-lg border px-3 py-2 text-xs ${
+            triggerMessage.startsWith("Released")
+              ? "border-sage/20 bg-sage/10 text-sage"
+              : "border-brick/20 bg-brick/10 text-brick"
+          }`}>
+            {triggerMessage}
+          </div>
+        )}
 
         {settings.baseUrl && (
           <div className="mb-3 flex min-h-[22px] items-center gap-3 text-[11px] text-ink/40">

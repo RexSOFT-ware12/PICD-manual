@@ -55,3 +55,9 @@ overrides it.
 - Polls every 5 seconds. If you need it near-real-time, ping me and
   the backend can be swapped from polling to the `callback_url`
   webhook it already supports, pushed via a WebSocket.
+
+## Manual processing gate
+
+Incoming scans are accepted immediately but remain in the `queued` state. The backend worker is intentionally dormant until the dashboard calls `POST /monitor/queue/trigger-next`. One trigger releases exactly one scan; the next scan remains queued until another manual trigger.
+
+This means receiving a scan can never start Photoshop / Illustrator / Python / Daz processing by itself.

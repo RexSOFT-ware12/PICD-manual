@@ -24,3 +24,41 @@ body {
   background-color: #dad7cc;
   border-radius: 3px;
 }
+
+@keyframes app-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(10px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-app-enter { animation: app-enter .55s cubic-bezier(.22,1,.36,1) both; }
+.animate-fade-in-up { animation: fade-in-up .4s cubic-bezier(.22,1,.36,1) both; }
+.animate-pop-in { animation: pop-in .3s cubic-bezier(.22,1,.36,1) both; }
+.animate-fade-in { animation: fade-in .25s ease-out both; }
+
+button, input, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+button:focus-visible, input:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid #1f3a5f;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}

@@ -24,6 +24,7 @@ export interface StatsResponse {
   counts: Record<ScanStatus, number>;
   total: number;
   queue_depth: number;
+  processing: boolean;
 }
 
 export interface ConnectionSettings {
@@ -179,3 +180,36 @@ export function isAbortError(e: unknown): boolean {
 }
 
 export { ApiError };
+
+export interface TriggerResponse {
+  scan_id: string;
+  status: ScanStatus;
+}
+
+export async function triggerNextScan(
+  settings: ConnectionSettings
+): Promise<TriggerResponse> {
+  if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
+  const url = `${settings.baseUrl.replace(/\/$/, "")}/monitor/queue/trigger-next`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined,
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError(
+      "Couldn't reach the backend. Check the URL and that the tunnel/server is running."
+    );
+  }
+  if (!res.ok) {
+    let detail = `Backend returned ${res.status}`;
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {}
+    throw new ApiError(detail, res.status);
+  }
+  return res.json() as Promise<TriggerResponse>;
+}
