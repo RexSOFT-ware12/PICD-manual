@@ -124,6 +124,56 @@ export function fetchScans(
   );
 }
 
+export interface RetryResponse {
+  scan_id: string;
+  status: ScanStatus;
+  queue_position?: number;
+}
+
+export async function retryScan(
+  settings: ConnectionSettings,
+  scanId: string,
+  signal?: AbortSignal
+): Promise<RetryResponse> {
+  if (!settings.baseUrl) {
+    throw new ApiError("No backend URL configured yet.");
+  }
+  const url = `${settings.baseUrl.replace(/\/$/, "")}/monitor/scans/${encodeURIComponent(
+    scanId
+  )}/retry`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined,
+      signal,
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw e;
+    }
+    throw new ApiError(
+      "Couldn't reach the backend. Check the URL and that the tunnel/server is running."
+    );
+  }
+  if (!res.ok) {
+    if (res.status === 401) {
+      throw new ApiError("Rejected — check the API key.", 401);
+    }
+    // The retry endpoint returns a useful {detail} on 404/409/422 —
+    // surface that instead of just the status code where we can.
+    let detail = `Backend returned ${res.status}`;
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {
+      // body wasn't JSON — fall back to the generic message above
+    }
+    throw new ApiError(detail, res.status);
+  }
+  return res.json() as Promise<RetryResponse>;
+}
+
 export function isAbortError(e: unknown): boolean {
   return e instanceof DOMException && e.name === "AbortError";
 }

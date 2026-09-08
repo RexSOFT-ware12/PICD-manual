@@ -85,9 +85,11 @@ function Thumb({ src, alt }: { src: string; alt: string }) {
 export default function ScanCard({
   scan,
   style,
+  onRetried,
 }: {
   scan: ScanSummary;
   style?: CSSProperties;
+  onRetried?: () => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -107,7 +109,13 @@ export default function ScanCard({
         accentByStatus[scan.status] ?? "border-l-slate"
       }`}
     >
-      {open && <ScanDetailModal scan={scan} onClose={() => setOpen(false)} />}
+      {open && (
+        <ScanDetailModal
+          scan={scan}
+          onClose={() => setOpen(false)}
+          onRetried={onRetried}
+        />
+      )}
 
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="truncate font-mono text-[11px] text-ink/60">

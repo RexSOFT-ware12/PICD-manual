@@ -359,6 +359,7 @@ export default function Home() {
                     ? byStatus(key).length
                     : stats?.counts[key] ?? byStatus(key).length
                 }
+                onRetried={() => refresh(settings)}
               />
             ))}
           </div>

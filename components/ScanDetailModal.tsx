@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import type { ScanSummary } from "@/lib/api";
+import { ApiError, isAbortError, loadSettings, retryScan, type ScanSummary } from "@/lib/api";
 
 const statusLabel: Record<string, string> = {
   queued: "Queued",
@@ -57,10 +57,19 @@ function Row({ label, value }: { label: string; value: string }) {
 export default function ScanDetailModal({
   scan,
   onClose,
+  onRetried,
 }: {
   scan: ScanSummary;
   onClose: () => void;
+  /** Called after a successful retry so the board can refresh sooner
+   * than the next poll tick, instead of waiting up to REFRESH_MS. */
+  onRetried?: () => void;
 }) {
+  const [retryState, setRetryState] = useState<
+    "idle" | "retrying" | "done" | "error"
+  >("idle");
+  const [retryError, setRetryError] = useState<string | null>(null);
+
   // Esc to close, and lock background scroll while open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -74,6 +83,20 @@ export default function ScanDetailModal({
       document.body.style.overflow = prevOverflow;
     };
   }, [onClose]);
+
+  const handleRetry = async () => {
+    setRetryState("retrying");
+    setRetryError(null);
+    try {
+      await retryScan(loadSettings(), scan.scan_id);
+      setRetryState("done");
+      onRetried?.();
+    } catch (e) {
+      if (isAbortError(e)) return;
+      setRetryState("error");
+      setRetryError(e instanceof ApiError ? e.message : "Retry failed.");
+    }
+  };
 
   return (
     <div
@@ -131,6 +154,29 @@ export default function ScanDetailModal({
           <div className="mt-3 rounded bg-brick/10 px-3 py-2 text-[12px] text-brick">
             <p className="mb-0.5 font-medium">Error</p>
             <p className="break-words">{scan.error}</p>
+          </div>
+        )}
+
+        {scan.status === "failed" && (
+          <div className="mt-3">
+            {retryState === "done" ? (
+              <p className="rounded bg-sage/10 px-3 py-2 text-[12px] font-medium text-sage">
+                Re-queued — it&apos;ll pick up on the next worker cycle.
+              </p>
+            ) : (
+              <button
+                onClick={handleRetry}
+                disabled={retryState === "retrying"}
+                className="w-full rounded-md bg-blueprint px-3 py-2 text-[13px] font-medium text-paper transition hover:bg-blueprint/90 disabled:cursor-wait disabled:opacity-60"
+              >
+                {retryState === "retrying" ? "Retrying…" : "Retry scan"}
+              </button>
+            )}
+            {retryState === "error" && retryError && (
+              <p className="mt-1.5 break-words text-[11px] text-brick">
+                {retryError}
+              </p>
+            )}
           </div>
         )}
       </div>

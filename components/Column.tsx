@@ -20,11 +20,13 @@ export default function Column({
   label,
   scans,
   count,
+  onRetried,
 }: {
   status: ScanStatus;
   label: string;
   scans: ScanSummary[];
   count: number;
+  onRetried?: () => void;
 }) {
   const animatedCount = useAnimatedNumber(count);
 
@@ -58,6 +60,7 @@ export default function Column({
           <ScanCard
             key={scan.scan_id}
             scan={scan}
+            onRetried={onRetried}
             style={{
               animationDelay: `${Math.min(i * STAGGER_STEP_MS, MAX_STAGGER_MS)}ms`,
             }}
