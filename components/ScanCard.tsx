@@ -82,7 +82,31 @@ export default function ScanCard({ scan, style, onRetried, onMoved, draggable = 
       className={`${compact ? "p-2" : "p-3"} min-w-0 cursor-pointer animate-fade-in-up rounded-lg border border-line border-l-[3px] bg-white/70 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md ${accentByStatus[scan.status] ?? "border-l-slate"} ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${dragging ? "scale-[.98] opacity-45" : ""}`}
     >
       {open && <ScanDetailModal scan={scan} onClose={() => setOpen(false)} onRetried={onRetried} />}
-      <div className="mb-2 flex items-center justify-between gap-2"><span className="truncate font-mono text-[11px] text-ink/60">{scan.scan_id.slice(0, 8)}…</span><span className="shrink-0 font-mono text-[10px] text-ink/40">{timeAgo(scan.status === "queued" ? scan.created_at : scan.updated_at)}</span></div>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="truncate font-mono text-[11px] text-ink/60">{scan.scan_id.slice(0, 8)}…</span>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className="font-mono text-[10px] text-ink/40">{timeAgo(scan.status === "queued" ? scan.created_at : scan.updated_at)}</span>
+          {onDelete && scan.status !== "completed" && (
+            <button
+              type="button"
+              aria-label={`Delete scan ${scan.scan_id.slice(0, 8)}`}
+              title="Delete scan"
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete(scan.scan_id);
+              }}
+              onKeyDown={(e) => e.stopPropagation()}
+              className={`ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-transparent text-ink/30 transition hover:border-brick/20 hover:bg-brick/10 hover:text-brick focus:outline-none focus:ring-2 focus:ring-brick/20 ${deleting ? "cursor-wait opacity-40" : ""}`}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="m19 6-1 15H6L5 6" /><path d="M10 11v6M14 11v6" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
       {(scan.front_image_url || scan.side_image_url) && <div className={`${compact ? "mb-1.5" : "mb-2"} flex gap-1.5`}>{scan.front_image_url && <Thumb src={scan.front_image_url} alt="front" />}{scan.side_image_url && <Thumb src={scan.side_image_url} alt="side" />}</div>}
       <div className="flex items-center justify-between gap-2 text-xs"><span className="truncate text-ink/70">{scan.user_id ?? "unknown user"}</span>{scan.gender && <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/50">{scan.gender}</span>}</div>
       {scan.status === "failed" && scan.error && <p className="mt-2 line-clamp-2 break-words rounded bg-brick/10 px-2 py-1 text-[11px] text-brick">{scan.error}</p>}

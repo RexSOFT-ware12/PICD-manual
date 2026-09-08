@@ -543,27 +543,7 @@ export default function Home() {
 
       </main>
 
-      <div
-        className="fixed bottom-5 right-5 z-40"
-        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("scale-110"); }}
-        onDragLeave={(e) => e.currentTarget.classList.remove("scale-110")}
-        onDrop={(e) => {
-          e.preventDefault(); e.currentTarget.classList.remove("scale-110");
-          const scanId = e.dataTransfer.getData("text/scan-id");
-          if (scanId) handleDelete(scanId);
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => setDeleteMode((v) => !v)}
-          aria-label={deleteMode ? "Exit delete mode" : "Delete scans"}
-          title={deleteMode ? "Click a non-completed card to delete" : "Delete scans"}
-          className={`flex h-12 w-12 items-center justify-center rounded-full border shadow-lg backdrop-blur transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${deleteMode ? "border-brick/30 bg-brick text-paper" : "border-line bg-white/90 text-ink/60 hover:text-brick"}`}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 15H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-        </button>
-        {deleteMode && <p className="absolute bottom-14 right-0 whitespace-nowrap rounded-full border border-brick/20 bg-white px-3 py-1.5 text-[10px] font-medium text-brick shadow-md">click or drag a card here</p>}
-      </div>
+
     </>
   );
 }
