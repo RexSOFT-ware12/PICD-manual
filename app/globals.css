@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background-color: #f3f2ed;
+  color: #1b2430;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background-color: #1f3a5f;
+  color: #f3f2ed;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #dad7cc;
+  border-radius: 3px;
+}
