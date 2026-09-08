@@ -285,3 +285,54 @@ export async function fetchAnalytics(
   if (to) params.set("to", to);
   return request<AnalyticsResponse>(`/monitor/analytics?${params.toString()}`, settings, signal);
 }
+
+export interface DeleteScanResponse {
+  scan_id: string;
+  status: ScanStatus;
+  deleted: boolean;
+  pending: boolean;
+  message?: string;
+}
+
+export async function deleteScan(settings: ConnectionSettings, scanId: string, signal?: AbortSignal): Promise<DeleteScanResponse> {
+  if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
+  const url = `${settings.baseUrl.replace(/\/$/, "")}/monitor/scans/${encodeURIComponent(scanId)}`;
+  try {
+    const res = await fetch(url, {
+      method: "DELETE",
+      headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined,
+      cache: "no-store",
+      signal,
+    });
+    if (!res.ok) {
+      let detail = `Backend returned ${res.status}`;
+      try { const body = await res.json(); if (typeof body?.detail === "string") detail = body.detail; } catch {}
+      throw new ApiError(detail, res.status);
+    }
+    return res.json() as Promise<DeleteScanResponse>;
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running.");
+  }
+}
+
+export interface ReorderScanResponse { scan_id: string; status: "queued"; queue_order: number; }
+
+export async function reorderScan(settings: ConnectionSettings, scanId: string, beforeScanId?: string): Promise<ReorderScanResponse> {
+  if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
+  const params = beforeScanId ? `?before_scan_id=${encodeURIComponent(beforeScanId)}` : "";
+  const url = `${settings.baseUrl.replace(/\/$/, "")}/monitor/scans/${encodeURIComponent(scanId)}/reorder${params}`;
+  try {
+    const res = await fetch(url, { method: "POST", headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined, cache: "no-store" });
+    if (!res.ok) {
+      let detail = `Backend returned ${res.status}`;
+      try { const body = await res.json(); if (typeof body?.detail === "string") detail = body.detail; } catch {}
+      throw new ApiError(detail, res.status);
+    }
+    return res.json() as Promise<ReorderScanResponse>;
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running.");
+  }
+}

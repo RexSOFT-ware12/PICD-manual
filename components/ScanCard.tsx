@@ -32,7 +32,7 @@ function Thumb({ src, alt }: { src: string; alt: string }) {
   return <div className="relative h-16 w-12 overflow-hidden rounded bg-ink/5">{!loaded && <div className="absolute inset-0 animate-pulse bg-ink/10" />}<Image ref={imgRef} src={src} alt={alt} fill sizes="48px" className={`object-cover transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`} unoptimized onLoad={() => setLoaded(true)} onError={() => setFailed(true)} /></div>;
 }
 
-export default function ScanCard({ scan, style, onRetried, onMoved, draggable = false }: { scan: ScanSummary; style?: CSSProperties; onRetried?: () => void; onMoved?: () => void; draggable?: boolean }) {
+export default function ScanCard({ scan, style, onRetried, onMoved, draggable = false, deleteMode = false, deleting = false, onDelete, onDropBefore }: { scan: ScanSummary; style?: CSSProperties; onRetried?: () => void; onMoved?: () => void; draggable?: boolean; deleteMode?: boolean; deleting?: boolean; onDelete?: (scanId: string) => void; onDropBefore?: (scanId: string, targetScanId: string) => void }) {
   const [open, setOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
 
@@ -40,7 +40,16 @@ export default function ScanCard({ scan, style, onRetried, onMoved, draggable = 
     if (!draggable) { e.preventDefault(); return; }
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/scan-id", scan.scan_id);
+    e.dataTransfer.setData("text/scan-status", scan.status);
     setDragging(true);
+  };
+
+  const handleClick = () => {
+    if (deleteMode && scan.status !== "completed") {
+      onDelete?.(scan.scan_id);
+      return;
+    }
+    if (!deleteMode) setOpen(true);
   };
 
   return (
@@ -51,8 +60,18 @@ export default function ScanCard({ scan, style, onRetried, onMoved, draggable = 
       draggable={draggable}
       onDragStart={handleDragStart}
       onDragEnd={() => setDragging(false)}
-      onClick={() => setOpen(true)}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(true); } }}
+      onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleClick(); } }}
+      onDragOver={(e) => {
+        if (scan.status === "queued" && e.dataTransfer.types.includes("text/scan-id")) { e.preventDefault(); e.currentTarget.classList.add("ring-2", "ring-blueprint/30"); }
+      }}
+      onDragLeave={(e) => e.currentTarget.classList.remove("ring-2", "ring-blueprint/30")}
+      onDrop={(e) => {
+        e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove("ring-2", "ring-blueprint/30");
+        const sourceId = e.dataTransfer.getData("text/scan-id");
+        const sourceStatus = e.dataTransfer.getData("text/scan-status");
+        if (sourceId && sourceId !== scan.scan_id && scan.status === "queued" && sourceStatus === "queued") onDropBefore?.(sourceId, scan.scan_id);
+      }}
       className={`min-w-0 cursor-pointer animate-fade-in-up rounded-md border border-line border-l-[3px] bg-white/70 p-3 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md ${accentByStatus[scan.status] ?? "border-l-slate"} ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${dragging ? "scale-[.98] opacity-45" : ""}`}
     >
       {open && <ScanDetailModal scan={scan} onClose={() => setOpen(false)} onRetried={onRetried} />}

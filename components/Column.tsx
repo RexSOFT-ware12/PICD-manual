@@ -23,6 +23,10 @@ export default function Column({
   onRetried,
   onMoved,
   onDropScan,
+  onDropBefore,
+  deleteMode,
+  deletingScan,
+  onDelete,
 }: {
   status: ScanStatus;
   label: string;
@@ -31,6 +35,10 @@ export default function Column({
   onRetried?: () => void;
   onMoved?: () => void;
   onDropScan?: (scanId: string, target: ScanStatus) => void;
+  onDropBefore?: (scanId: string, targetScanId: string) => void;
+  deleteMode?: boolean;
+  deletingScan?: string | null;
+  onDelete?: (scanId: string) => void;
 }) {
   const animatedCount = useAnimatedNumber(count);
 
@@ -68,7 +76,11 @@ export default function Column({
             scan={scan}
             onRetried={onRetried}
             onMoved={onMoved}
-            draggable={scan.status === "failed" || scan.status === "processing"}
+            draggable={scan.status === "failed" || scan.status === "processing" || scan.status === "queued"}
+            deleteMode={deleteMode}
+            deleting={deletingScan === scan.scan_id}
+            onDelete={onDelete}
+            onDropBefore={onDropBefore}
             style={{ animationDelay: `${Math.min(i * STAGGER_STEP_MS, MAX_STAGGER_MS)}ms` }}
           />
         ))}
