@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Image from "next/image";
 import type { ScanSummary } from "@/lib/api";
+import ScanDetailModal from "./ScanDetailModal";
 
 function timeAgo(iso: string | null): string {
   if (!iso) return "—";
@@ -28,11 +29,23 @@ const accentByStatus: Record<string, string> = {
 function Thumb({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
 
   // If the scan gets a fresh URL later (e.g. re-signed), give it another try.
   useEffect(() => {
     setFailed(false);
     setLoaded(false);
+  }, [src]);
+
+  // Browsers don't always fire the <img> "load" event for a response
+  // served straight from cache, since there's no network activity to hang
+  // the event off of — that left cached thumbnails stuck under the
+  // skeleton forever (looking like the scan was permanently "processing").
+  // Checking `.complete` right after mount/src-change catches that case.
+  useEffect(() => {
+    if (imgRef.current?.complete && imgRef.current.naturalWidth > 0) {
+      setLoaded(true);
+    }
   }, [src]);
 
   if (failed) {
@@ -53,6 +66,7 @@ function Thumb({ src, alt }: { src: string; alt: string }) {
         <div className="absolute inset-0 animate-pulse bg-ink/10" />
       )}
       <Image
+        ref={imgRef}
         src={src}
         alt={alt}
         fill
@@ -75,13 +89,26 @@ export default function ScanCard({
   scan: ScanSummary;
   style?: CSSProperties;
 }) {
+  const [open, setOpen] = useState(false);
+
   return (
     <div
       style={style}
-      className={`min-w-0 animate-fade-in-up rounded-md border border-line border-l-[3px] bg-white/70 p-3 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md ${
+      role="button"
+      tabIndex={0}
+      onClick={() => setOpen(true)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setOpen(true);
+        }
+      }}
+      className={`min-w-0 cursor-pointer animate-fade-in-up rounded-md border border-line border-l-[3px] bg-white/70 p-3 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md ${
         accentByStatus[scan.status] ?? "border-l-slate"
       }`}
     >
+      {open && <ScanDetailModal scan={scan} onClose={() => setOpen(false)} />}
+
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="truncate font-mono text-[11px] text-ink/60">
           {scan.scan_id.slice(0, 8)}…
