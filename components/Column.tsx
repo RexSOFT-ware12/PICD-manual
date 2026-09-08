@@ -42,7 +42,7 @@ export default function Column({
   };
 
   return (
-    <div className="flex min-w-0 animate-fade-in-up flex-col">
+    <div className="flex min-h-0 min-w-0 animate-fade-in-up flex-col">
       <div className="mb-3 flex items-center gap-2 px-1">
         <span className="relative flex h-2 w-2">
           {status === "processing" && <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${dotByStatus[status]} opacity-60`} />}

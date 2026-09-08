@@ -262,9 +262,9 @@ export default function Home() {
     : "connecting";
 
   return (
-    <main className="min-h-screen animate-app-enter bg-paper sm:flex">
+    <main className="h-screen min-h-0 overflow-hidden animate-app-enter bg-paper sm:flex">
       {/* Left rail */}
-      <aside className="flex w-full shrink-0 flex-col bg-blueprint px-5 py-6 text-paper shadow-2xl shadow-blueprint/10 sm:w-64">
+      <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden bg-blueprint px-5 py-6 text-paper shadow-2xl shadow-blueprint/10 sm:w-64">
         <div className="mb-8">
           <p className="font-display text-lg font-semibold leading-tight">
             Scan Queue
@@ -347,7 +347,7 @@ export default function Home() {
       </aside>
 
       {/* Main board */}
-      <section className="flex min-w-0 flex-1 flex-col bg-paper px-4 py-5 sm:px-6 sm:py-6">
+      <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-paper px-4 py-5 sm:px-6 sm:py-6">
         <div className="mb-2 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3">
@@ -439,7 +439,7 @@ export default function Home() {
           </div>
         ) : (
           <div
-            className={`grid flex-1 grid-cols-1 gap-4 overflow-y-auto transition-opacity duration-500 sm:grid-cols-2 xl:grid-cols-4 ${
+            className={`grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden transition-opacity duration-500 sm:grid-cols-2 xl:grid-cols-4 ${
               isStale ? "opacity-60" : ""
             }`}
           >
