@@ -185,7 +185,7 @@ export default function ScanDetailModal({
           <div className="mt-3">
             {retryState === "done" ? (
               <p className="rounded bg-sage/10 px-3 py-2 text-[12px] font-medium text-sage">
-                Re-queued — it&apos;ll pick up on the next worker cycle.
+                Re-queued — waiting for a manual trigger from the dashboard.
               </p>
             ) : (
               <button

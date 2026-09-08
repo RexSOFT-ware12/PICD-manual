@@ -110,12 +110,14 @@ export function fetchStats(settings: ConnectionSettings, signal?: AbortSignal) {
 
 export function fetchScans(
   settings: ConnectionSettings,
-  opts: { status?: ScanStatus; q?: string; limit?: number; skip?: number } = {},
+  opts: { status?: ScanStatus; q?: string; limit?: number; skip?: number; from?: string; to?: string } = {},
   signal?: AbortSignal
 ) {
   const params = new URLSearchParams();
   if (opts.status) params.set("status", opts.status);
   if (opts.q) params.set("q", opts.q);
+  if (opts.from) params.set("from", opts.from);
+  if (opts.to) params.set("to", opts.to);
   params.set("limit", String(opts.limit ?? 100));
   params.set("skip", String(opts.skip ?? 0));
   return request<ScanListResponse>(
@@ -212,4 +214,74 @@ export async function triggerNextScan(
     throw new ApiError(detail, res.status);
   }
   return res.json() as Promise<TriggerResponse>;
+}
+
+
+export interface MoveScanResponse {
+  scan_id: string;
+  status: ScanStatus;
+  queue_position?: number | null;
+  message?: string;
+}
+
+export async function moveScanToQueue(
+  settings: ConnectionSettings,
+  scanId: string,
+  signal?: AbortSignal
+): Promise<MoveScanResponse> {
+  if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
+  const url = `${settings.baseUrl.replace(/\/$/, "")}/monitor/scans/${encodeURIComponent(scanId)}/move-to-queue`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined,
+      cache: "no-store",
+      signal,
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running.");
+  }
+  if (!res.ok) {
+    let detail = `Backend returned ${res.status}`;
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {}
+    throw new ApiError(detail, res.status);
+  }
+  return res.json() as Promise<MoveScanResponse>;
+}
+
+export interface AnalyticsBucket {
+  key: string;
+  label: string;
+  total: number;
+  queued: number;
+  processing: number;
+  completed: number;
+  failed: number;
+}
+
+export interface AnalyticsResponse {
+  from: string;
+  to: string;
+  total: number;
+  counts: Record<ScanStatus, number>;
+  daily: AnalyticsBucket[];
+  weekly: AnalyticsBucket[];
+  monthly: AnalyticsBucket[];
+}
+
+export async function fetchAnalytics(
+  settings: ConnectionSettings,
+  from?: string,
+  to?: string,
+  signal?: AbortSignal
+) {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return request<AnalyticsResponse>(`/monitor/analytics?${params.toString()}`, settings, signal);
 }

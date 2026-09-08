@@ -61,3 +61,10 @@ overrides it.
 Incoming scans are accepted immediately but remain in the `queued` state. The backend worker is intentionally dormant until the dashboard calls `POST /monitor/queue/trigger-next`. One trigger releases exactly one scan; the next scan remains queued until another manual trigger.
 
 This means receiving a scan can never start Photoshop / Illustrator / Python / Daz processing by itself.
+
+## Dashboard additions
+
+- Failed scans can be dragged back into the **Queued** column. Completed scans are not draggable or mutable from the dashboard.
+- A currently processing scan may be dragged as a visual action, but the backend intentionally refuses to re-queue it while Photoshop/Illustrator/Daz work is active because that external desktop pipeline cannot be safely cancelled.
+- The board supports Today, This week, This month, and Custom date filtering.
+- `/analytics` provides daily, weekly, monthly, and status-mix analytics plus an Excel-compatible CSV export.

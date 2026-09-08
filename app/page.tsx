@@ -5,6 +5,7 @@ import {
   fetchScans,
   fetchStats,
   triggerNextScan,
+  moveScanToQueue,
   loadSettings,
   saveSettings,
   ApiError,
@@ -74,6 +75,10 @@ export default function Home() {
   const [tabVisible, setTabVisible] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [triggerMessage, setTriggerMessage] = useState<string | null>(null);
+  const [datePreset, setDatePreset] = useState<"all" | "today" | "week" | "month" | "custom">("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [movingScan, setMovingScan] = useState<string | null>(null);
 
   const searchRef = useRef(search);
   searchRef.current = search;
@@ -105,6 +110,17 @@ export default function Home() {
     return () => clearInterval(id);
   }, []);
 
+  const dateRange = useCallback((): { from?: string; to?: string } => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    if (datePreset === "custom") return { from: fromDate || undefined, to: toDate || undefined };
+    if (datePreset === "today") { const d = isoDate(now); return { from: d, to: d }; }
+    if (datePreset === "week") { const d = new Date(now); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); return { from: isoDate(d), to: isoDate(now) }; }
+    if (datePreset === "month") { const d = new Date(now.getFullYear(), now.getMonth(), 1); return { from: isoDate(d), to: isoDate(now) }; }
+    return {};
+  }, [datePreset, fromDate, toDate]);
+
   const refresh = useCallback(async (s: Settings) => {
     if (!s.baseUrl) return;
 
@@ -120,7 +136,7 @@ export default function Home() {
         fetchStats(s, controller.signal),
         fetchScans(
           s,
-          { limit: limitRef.current, q: searchRef.current || undefined },
+          { limit: limitRef.current, q: searchRef.current || undefined, ...dateRange() },
           controller.signal
         ),
       ]);
@@ -148,7 +164,7 @@ export default function Home() {
       setError(e instanceof ApiError ? e.message : "Something went wrong.");
       setConsecutiveFailures((n) => n + 1);
     }
-  }, []);
+  }, [dateRange]);
 
   // Main poll loop: only runs while the tab is visible and we're not
   // locked out on a bad API key. Pausing on visibilitychange avoids
@@ -175,7 +191,7 @@ export default function Home() {
     const id = setTimeout(() => refresh(settings), 300);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, datePreset, fromDate, toDate]);
 
   const handleSaveSettings = (s: Settings) => {
     saveSettings(s);
@@ -207,6 +223,23 @@ export default function Home() {
       setTriggerMessage(e instanceof ApiError ? e.message : "Could not release the next scan.");
     } finally {
       setTriggering(false);
+    }
+  };
+
+  const handleDropScan = async (scanId: string, target: ScanStatus) => {
+    if (target !== "queued" || movingScan) return;
+    const scan = scans.find((item) => item.scan_id === scanId);
+    if (!scan || (scan.status !== "failed" && scan.status !== "processing")) return;
+    setMovingScan(scanId);
+    setTriggerMessage(null);
+    try {
+      const result = await moveScanToQueue(settings, scanId);
+      setTriggerMessage(result.message ?? `Moved ${scanId.slice(0, 8)}… back to the manual queue`);
+      await refresh(settings);
+    } catch (e) {
+      setTriggerMessage(e instanceof ApiError ? e.message : "Could not move the scan back to the queue.");
+    } finally {
+      setMovingScan(null);
     }
   };
 
@@ -316,9 +349,13 @@ export default function Home() {
       {/* Main board */}
       <section className="flex min-w-0 flex-1 flex-col bg-paper px-4 py-5 sm:px-6 sm:py-6">
         <div className="mb-2 flex items-center justify-between">
-          <h1 className="font-display text-xl font-semibold text-ink">
-            Pipeline board
-          </h1>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="font-display text-xl font-semibold text-ink">Pipeline board</h1>
+              <a href="/analytics" className="rounded-full border border-line bg-white px-3 py-1 text-[11px] font-medium text-ink/60 transition hover:-translate-y-0.5 hover:border-blueprint hover:text-blueprint">Analytics →</a>
+            </div>
+            <p className="mt-1 text-[11px] text-ink/35">Drag failed scans back into the queue. Completed scans are locked.</p>
+          </div>
           <div className="relative">
             <input
               value={search}
@@ -336,6 +373,19 @@ export default function Home() {
               </button>
             )}
           </div>
+        </div>
+
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white/60 p-2">
+          <span className="mr-1 text-[10px] font-semibold uppercase tracking-[.14em] text-ink/35">Date</span>
+          {[['all','All'],['today','Today'],['week','This week'],['month','This month']].map(([key,label]) => (
+            <button key={key} onClick={() => setDatePreset(key as typeof datePreset)} className={`rounded-full px-2.5 py-1 text-[11px] transition ${datePreset === key ? 'bg-blueprint text-paper shadow-sm' : 'bg-ink/5 text-ink/55 hover:bg-ink/10'}`}>{label}</button>
+          ))}
+          <button onClick={() => setDatePreset('custom')} className={`rounded-full px-2.5 py-1 text-[11px] transition ${datePreset === 'custom' ? 'bg-blueprint text-paper' : 'bg-ink/5 text-ink/55 hover:bg-ink/10'}`}>Custom</button>
+          {datePreset === 'custom' && <>
+            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="rounded-full border border-line bg-white px-2 py-1 text-[11px]" />
+            <span className="text-[10px] text-ink/30">to</span>
+            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="rounded-full border border-line bg-white px-2 py-1 text-[11px]" />
+          </>}
         </div>
 
         {triggerMessage && (
@@ -405,6 +455,7 @@ export default function Home() {
                     : stats?.counts[key] ?? byStatus(key).length
                 }
                 onRetried={() => refresh(settings)}
+                onDropScan={handleDropScan}
               />
             ))}
           </div>
