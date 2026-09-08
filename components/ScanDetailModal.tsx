@@ -124,13 +124,13 @@ export default function ScanDetailModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex animate-fade-in items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[100] flex animate-modal-backdrop items-center justify-center bg-ink/40 p-4"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
-        className="animate-pop-in max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/60 bg-paper p-6 shadow-2xl shadow-ink/20"
+        className="animate-modal-panel max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/60 bg-paper p-6 shadow-2xl shadow-ink/20 [will-change:transform,opacity]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">

@@ -42,6 +42,17 @@ body {
   to { opacity: 1; }
 }
 
+@keyframes modal-backdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-panel {
+  from { opacity: 0; transform: translate3d(0, 4px, 0) scale(.99); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+.animate-modal-backdrop { animation: modal-backdrop .12s ease-out both; }
+.animate-modal-panel { animation: modal-panel .16s cubic-bezier(.22,1,.36,1) both; }
+
 .animate-app-enter { animation: app-enter .55s cubic-bezier(.22,1,.36,1) both; }
 .animate-fade-in-up { animation: fade-in-up .4s cubic-bezier(.22,1,.36,1) both; }
 .animate-pop-in { animation: pop-in .3s cubic-bezier(.22,1,.36,1) both; }
