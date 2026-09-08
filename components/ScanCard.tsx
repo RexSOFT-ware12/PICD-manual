@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Image from "next/image";
 import type { ScanSummary } from "@/lib/api";
 
@@ -24,12 +24,16 @@ const accentByStatus: Record<string, string> = {
   failed: "border-l-brick",
 };
 
-/** Thumbnail with a placeholder fallback for expired/CORS-blocked URLs. */
+/** Thumbnail with a skeleton-to-fade-in load and a placeholder fallback for expired/CORS-blocked URLs. */
 function Thumb({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   // If the scan gets a fresh URL later (e.g. re-signed), give it another try.
-  useEffect(() => setFailed(false), [src]);
+  useEffect(() => {
+    setFailed(false);
+    setLoaded(false);
+  }, [src]);
 
   if (failed) {
     return (
@@ -45,23 +49,36 @@ function Thumb({ src, alt }: { src: string; alt: string }) {
 
   return (
     <div className="relative h-16 w-12 overflow-hidden rounded bg-ink/5">
+      {!loaded && (
+        <div className="absolute inset-0 animate-pulse bg-ink/10" />
+      )}
       <Image
         src={src}
         alt={alt}
         fill
         sizes="48px"
-        className="object-cover"
+        className={`object-cover transition-opacity duration-300 ${
+          loaded ? "opacity-100" : "opacity-0"
+        }`}
         unoptimized
+        onLoad={() => setLoaded(true)}
         onError={() => setFailed(true)}
       />
     </div>
   );
 }
 
-export default function ScanCard({ scan }: { scan: ScanSummary }) {
+export default function ScanCard({
+  scan,
+  style,
+}: {
+  scan: ScanSummary;
+  style?: CSSProperties;
+}) {
   return (
     <div
-      className={`min-w-0 rounded-md border border-line border-l-[3px] bg-white/70 p-3 shadow-sm ${
+      style={style}
+      className={`min-w-0 animate-fade-in-up rounded-md border border-line border-l-[3px] bg-white/70 p-3 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md ${
         accentByStatus[scan.status] ?? "border-l-slate"
       }`}
     >

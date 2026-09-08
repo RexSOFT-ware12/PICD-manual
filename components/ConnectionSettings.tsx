@@ -13,9 +13,9 @@ export type ConnectionStatus =
 const dotByStatus: Record<ConnectionStatus, string> = {
   disconnected: "bg-slate",
   connecting: "bg-amber animate-pulse",
-  ok: "bg-sage",
-  warn: "bg-amber",
-  error: "bg-brick",
+  ok: "bg-sage animate-[pulse_2.5s_ease-in-out_infinite]",
+  warn: "bg-amber animate-pulse",
+  error: "bg-brick animate-pulse",
 };
 
 const labelByStatus: Record<ConnectionStatus, string> = {
@@ -50,7 +50,7 @@ export default function ConnectionSettingsPanel({
         connection
       </button>
       {open && (
-        <div className="absolute left-0 top-10 z-20 w-72 rounded-lg border border-white/10 bg-[#16202f] p-4 shadow-xl">
+        <div className="animate-pop-in absolute left-0 top-10 z-20 w-72 origin-top-left rounded-lg border border-white/10 bg-[#16202f] p-4 shadow-xl">
           <p className="mb-3 flex items-center gap-2 font-display text-sm text-paper">
             Backend connection
             <span className="flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal text-paper/40">
@@ -82,7 +82,7 @@ export default function ConnectionSettingsPanel({
               onSave({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() });
               setOpen(false);
             }}
-            className="w-full rounded bg-amber py-1.5 text-xs font-medium text-ink transition hover:brightness-110"
+            className="w-full rounded bg-amber py-1.5 text-xs font-medium text-ink transition-all hover:brightness-110 active:scale-[0.98]"
           >
             Save & reconnect
           </button>

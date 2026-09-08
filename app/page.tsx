@@ -13,6 +13,7 @@ import {
   type StatsResponse,
   type ConnectionSettings as Settings,
 } from "@/lib/api";
+import { useAnimatedNumber } from "@/lib/useAnimatedNumber";
 import ConnectionSettingsPanel, {
   type ConnectionStatus,
 } from "@/components/ConnectionSettings";
@@ -32,6 +33,27 @@ const LOAD_MORE_STEP = 150;
 // than just logging a one-line error at the bottom of the rail.
 const STALE_AFTER_FAILURES = 2;
 
+/** A stat number that counts up/down instead of snapping, with a skeleton
+ * placeholder while its value isn't known yet. */
+function AnimatedStat({ value }: { value: number | null }) {
+  const display = useAnimatedNumber(value);
+  if (value === null) {
+    return (
+      <span className="inline-block h-[1em] w-6 animate-pulse rounded bg-white/10 align-middle" />
+    );
+  }
+  return <span className="tabular-nums">{display}</span>;
+}
+
+function formatAgo(last: Date | null, now: number): string {
+  if (!last) return "";
+  const diffSec = Math.max(0, Math.round((now - last.getTime()) / 1000));
+  if (diffSec < 5) return "just now";
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.round(diffSec / 60);
+  return `${diffMin}m ago`;
+}
+
 export default function Home() {
   const [settings, setSettings] = useState<Settings>({ baseUrl: "", apiKey: "" });
   const [ready, setReady] = useState(false);
@@ -39,9 +61,11 @@ export default function Home() {
   const [scans, setScans] = useState<ScanSummary[]>([]);
   const [scansTotal, setScansTotal] = useState<number | null>(null);
   const [limit, setLimit] = useState(BASE_LIMIT);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
   // True once we've hit a 401 — polling stops until the user re-saves
   // settings, since retrying the same bad key every 5s can't succeed.
@@ -69,6 +93,13 @@ export default function Home() {
     const onVisibility = () => setTabVisible(!document.hidden);
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+
+  // Ticks once a second so "updated Xs ago" stays live instead of only
+  // updating whenever some other state change happens to re-render.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
   }, []);
 
   const refresh = useCallback(async (s: Settings) => {
@@ -152,11 +183,13 @@ export default function Home() {
     setLimit(BASE_LIMIT);
   };
 
-  const handleLoadMore = () => {
+  const handleLoadMore = async () => {
     const next = limit + LOAD_MORE_STEP;
     setLimit(next);
     limitRef.current = next;
-    refresh(settings);
+    setLoadingMore(true);
+    await refresh(settings);
+    setLoadingMore(false);
   };
 
   const byStatus = (status: ScanStatus) =>
@@ -203,7 +236,7 @@ export default function Home() {
             Queue depth
           </p>
           <p className="font-display text-3xl font-semibold">
-            {stats?.queue_depth ?? "—"}
+            <AnimatedStat value={stats?.queue_depth ?? null} />
           </p>
           <p className="text-[11px] text-paper/40">jobs waiting on the worker</p>
         </div>
@@ -212,13 +245,13 @@ export default function Home() {
           {STATUS_ORDER.map(({ key, label }) => (
             <div
               key={key}
-              className="flex items-center justify-between rounded border border-white/5 bg-white/[0.03] px-3 py-2 text-sm"
+              className="flex items-center justify-between rounded border border-white/5 bg-white/[0.03] px-3 py-2 text-sm transition-colors"
             >
               <span className="text-paper/70">{label}</span>
               <span className="font-mono text-paper">
-                {isSearchActive
-                  ? byStatus(key).length
-                  : stats?.counts[key] ?? "—"}
+                <AnimatedStat
+                  value={isSearchActive ? byStatus(key).length : stats?.counts[key] ?? null}
+                />
               </span>
             </div>
           ))}
@@ -226,13 +259,19 @@ export default function Home() {
 
         <div className="mt-auto pt-6 text-[11px] text-paper/30">
           {authBlocked ? (
-            <p className="text-brick/80">
+            <p className="animate-fade-in text-brick/80">
               {error} Polling stopped — re-save settings once it&apos;s fixed.
             </p>
           ) : error ? (
-            <p className="text-brick/80">{error}</p>
+            <p className="animate-fade-in text-brick/80">{error}</p>
           ) : lastUpdated ? (
-            <p>updated {lastUpdated.toLocaleTimeString()}</p>
+            <p
+              title={lastUpdated.toLocaleTimeString()}
+              className="flex items-center gap-1.5"
+            >
+              <span className="h-1 w-1 rounded-full bg-sage animate-[pulse_2.5s_ease-in-out_infinite]" />
+              updated {formatAgo(lastUpdated, now)}
+            </p>
           ) : (
             <p>connecting…</p>
           )}
@@ -245,18 +284,29 @@ export default function Home() {
           <h1 className="font-display text-xl font-semibold text-ink">
             Pipeline board
           </h1>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="search scan_id or user_id"
-            className="w-64 rounded-full border border-line bg-white px-4 py-1.5 text-sm text-ink outline-none focus:border-blueprint"
-          />
+          <div className="relative">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="search scan_id or user_id"
+              className="w-64 rounded-full border border-line bg-white px-4 py-1.5 pr-8 text-sm text-ink outline-none transition-shadow focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+                className="animate-fade-in absolute right-2.5 top-1/2 -translate-y-1/2 text-sm leading-none text-ink/30 transition hover:text-ink/60"
+              >
+                ×
+              </button>
+            )}
+          </div>
         </div>
 
         {settings.baseUrl && (
-          <div className="mb-3 flex items-center gap-3 text-[11px] text-ink/40">
+          <div className="mb-3 flex min-h-[22px] items-center gap-3 text-[11px] text-ink/40">
             {isStale && (
-              <span className="rounded-full bg-brick/10 px-2 py-0.5 font-medium text-brick">
+              <span className="animate-fade-in rounded-full bg-brick/10 px-2 py-0.5 font-medium text-brick">
                 data may be stale
               </span>
             )}
@@ -266,8 +316,12 @@ export default function Home() {
                 {scansTotal > scans.length && (
                   <button
                     onClick={handleLoadMore}
-                    className="ml-2 rounded-full border border-line px-2 py-0.5 text-ink/60 transition hover:border-blueprint hover:text-blueprint"
+                    disabled={loadingMore}
+                    className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-line px-2 py-0.5 text-ink/60 transition hover:border-blueprint hover:text-blueprint disabled:cursor-wait disabled:opacity-60"
                   >
+                    {loadingMore && (
+                      <span className="h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-ink/20 border-t-blueprint" />
+                    )}
                     load more
                   </button>
                 )}
@@ -278,7 +332,7 @@ export default function Home() {
 
         {!settings.baseUrl ? (
           <div className="flex flex-1 items-center justify-center">
-            <div className="max-w-sm text-center">
+            <div className="animate-fade-in-up max-w-sm text-center">
               <p className="font-display text-lg text-ink">
                 No backend connected
               </p>
@@ -290,7 +344,7 @@ export default function Home() {
           </div>
         ) : (
           <div
-            className={`grid flex-1 grid-cols-1 gap-4 overflow-y-auto transition-opacity sm:grid-cols-2 xl:grid-cols-4 ${
+            className={`grid flex-1 grid-cols-1 gap-4 overflow-y-auto transition-opacity duration-500 sm:grid-cols-2 xl:grid-cols-4 ${
               isStale ? "opacity-60" : ""
             }`}
           >
