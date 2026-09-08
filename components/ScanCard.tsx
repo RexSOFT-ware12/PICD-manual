@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import type { ScanSummary } from "@/lib/api";
 
@@ -23,6 +24,40 @@ const accentByStatus: Record<string, string> = {
   failed: "border-l-brick",
 };
 
+/** Thumbnail with a placeholder fallback for expired/CORS-blocked URLs. */
+function Thumb({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+
+  // If the scan gets a fresh URL later (e.g. re-signed), give it another try.
+  useEffect(() => setFailed(false), [src]);
+
+  if (failed) {
+    return (
+      <div className="relative flex h-16 w-12 items-center justify-center overflow-hidden rounded bg-ink/10">
+        <span className="text-center text-[8px] leading-tight text-ink/40">
+          image
+          <br />
+          unavailable
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-16 w-12 overflow-hidden rounded bg-ink/5">
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes="48px"
+        className="object-cover"
+        unoptimized
+        onError={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
 export default function ScanCard({ scan }: { scan: ScanSummary }) {
   return (
     <div
@@ -41,23 +76,10 @@ export default function ScanCard({ scan }: { scan: ScanSummary }) {
 
       {(scan.front_image_url || scan.side_image_url) && (
         <div className="mb-2 flex gap-1.5">
-          {[scan.front_image_url, scan.side_image_url].map((src, i) =>
-            src ? (
-              <div
-                key={i}
-                className="relative h-16 w-12 overflow-hidden rounded bg-ink/5"
-              >
-                <Image
-                  src={src}
-                  alt={i === 0 ? "front" : "side"}
-                  fill
-                  sizes="48px"
-                  className="object-cover"
-                  unoptimized
-                />
-              </div>
-            ) : null
+          {scan.front_image_url && (
+            <Thumb src={scan.front_image_url} alt="front" />
           )}
+          {scan.side_image_url && <Thumb src={scan.side_image_url} alt="side" />}
         </div>
       )}
 

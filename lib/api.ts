@@ -68,7 +68,11 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, settings: ConnectionSettings): Promise<T> {
+async function request<T>(
+  path: string,
+  settings: ConnectionSettings,
+  signal?: AbortSignal
+): Promise<T> {
   if (!settings.baseUrl) {
     throw new ApiError("No backend URL configured yet.");
   }
@@ -78,8 +82,14 @@ async function request<T>(path: string, settings: ConnectionSettings): Promise<T
     res = await fetch(url, {
       headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined,
       cache: "no-store",
+      signal,
     });
-  } catch {
+  } catch (e) {
+    // Let AbortError propagate as-is so callers can distinguish
+    // "cancelled because a newer request came in" from a real failure.
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw e;
+    }
     throw new ApiError(
       "Couldn't reach the backend. Check the URL and that the tunnel/server is running."
     );
@@ -93,20 +103,29 @@ async function request<T>(path: string, settings: ConnectionSettings): Promise<T
   return res.json() as Promise<T>;
 }
 
-export function fetchStats(settings: ConnectionSettings) {
-  return request<StatsResponse>("/monitor/stats", settings);
+export function fetchStats(settings: ConnectionSettings, signal?: AbortSignal) {
+  return request<StatsResponse>("/monitor/stats", settings, signal);
 }
 
 export function fetchScans(
   settings: ConnectionSettings,
-  opts: { status?: ScanStatus; q?: string; limit?: number; skip?: number } = {}
+  opts: { status?: ScanStatus; q?: string; limit?: number; skip?: number } = {},
+  signal?: AbortSignal
 ) {
   const params = new URLSearchParams();
   if (opts.status) params.set("status", opts.status);
   if (opts.q) params.set("q", opts.q);
   params.set("limit", String(opts.limit ?? 100));
   params.set("skip", String(opts.skip ?? 0));
-  return request<ScanListResponse>(`/monitor/scans?${params.toString()}`, settings);
+  return request<ScanListResponse>(
+    `/monitor/scans?${params.toString()}`,
+    settings,
+    signal
+  );
+}
+
+export function isAbortError(e: unknown): boolean {
+  return e instanceof DOMException && e.name === "AbortError";
 }
 
 export { ApiError };

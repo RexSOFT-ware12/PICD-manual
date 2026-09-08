@@ -7,12 +7,15 @@ import {
   loadSettings,
   saveSettings,
   ApiError,
+  isAbortError,
   type ScanStatus,
   type ScanSummary,
   type StatsResponse,
   type ConnectionSettings as Settings,
 } from "@/lib/api";
-import ConnectionSettingsPanel from "@/components/ConnectionSettings";
+import ConnectionSettingsPanel, {
+  type ConnectionStatus,
+} from "@/components/ConnectionSettings";
 import Column from "@/components/Column";
 
 const STATUS_ORDER: { key: ScanStatus; label: string }[] = [
@@ -23,56 +26,156 @@ const STATUS_ORDER: { key: ScanStatus; label: string }[] = [
 ];
 
 const REFRESH_MS = 5000;
+const BASE_LIMIT = 150;
+const LOAD_MORE_STEP = 150;
+// After this many back-to-back failures, treat the board as stale rather
+// than just logging a one-line error at the bottom of the rail.
+const STALE_AFTER_FAILURES = 2;
 
 export default function Home() {
   const [settings, setSettings] = useState<Settings>({ baseUrl: "", apiKey: "" });
   const [ready, setReady] = useState(false);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [scans, setScans] = useState<ScanSummary[]>([]);
+  const [scansTotal, setScansTotal] = useState<number | null>(null);
+  const [limit, setLimit] = useState(BASE_LIMIT);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [consecutiveFailures, setConsecutiveFailures] = useState(0);
+  // True once we've hit a 401 — polling stops until the user re-saves
+  // settings, since retrying the same bad key every 5s can't succeed.
+  const [authBlocked, setAuthBlocked] = useState(false);
+  const [tabVisible, setTabVisible] = useState(true);
+
   const searchRef = useRef(search);
   searchRef.current = search;
+  const limitRef = useRef(limit);
+  limitRef.current = limit;
+
+  // Guards against overlapping/out-of-order responses: every refresh call
+  // gets an id, and only the most recent in-flight request is allowed to
+  // land. The AbortController also actually cancels the stale network
+  // request instead of just ignoring its response.
+  const requestIdRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setSettings(loadSettings());
     setReady(true);
   }, []);
 
+  useEffect(() => {
+    const onVisibility = () => setTabVisible(!document.hidden);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+
   const refresh = useCallback(async (s: Settings) => {
     if (!s.baseUrl) return;
+
+    // Cancel whatever's still in flight — the response we're about to
+    // fetch is always more current than anything already pending.
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const requestId = ++requestIdRef.current;
+
     try {
       const [statsRes, scansRes] = await Promise.all([
-        fetchStats(s),
-        fetchScans(s, { limit: 150, q: searchRef.current || undefined }),
+        fetchStats(s, controller.signal),
+        fetchScans(
+          s,
+          { limit: limitRef.current, q: searchRef.current || undefined },
+          controller.signal
+        ),
       ]);
+
+      // A newer request may have started (and even resolved) while this
+      // one was in flight — if so, drop this result on the floor.
+      if (requestId !== requestIdRef.current) return;
+
       setStats(statsRes);
       setScans(scansRes.scans);
+      setScansTotal(scansRes.total);
       setError(null);
+      setConsecutiveFailures(0);
+      setAuthBlocked(false);
       setLastUpdated(new Date());
     } catch (e) {
+      if (isAbortError(e)) return; // superseded by a newer request, not a real failure
+      if (requestId !== requestIdRef.current) return;
+
+      if (e instanceof ApiError && e.status === 401) {
+        setError(e.message);
+        setAuthBlocked(true);
+        return;
+      }
       setError(e instanceof ApiError ? e.message : "Something went wrong.");
+      setConsecutiveFailures((n) => n + 1);
     }
   }, []);
 
+  // Main poll loop: only runs while the tab is visible and we're not
+  // locked out on a bad API key. Pausing on visibilitychange avoids
+  // burning API calls/tunnel bandwidth on a backgrounded tab.
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || authBlocked || !tabVisible) return;
     refresh(settings);
     const id = setInterval(() => refresh(settings), REFRESH_MS);
     return () => clearInterval(id);
-  }, [ready, settings, refresh]);
+  }, [ready, settings, refresh, authBlocked, tabVisible]);
+
+  // Refresh immediately when the tab regains focus instead of waiting for
+  // the next interval tick.
+  useEffect(() => {
+    if (!ready || authBlocked || !tabVisible) return;
+    refresh(settings);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabVisible]);
 
   // Re-run search against the live settings without waiting for the interval.
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || authBlocked) return;
+    setLimit(BASE_LIMIT);
     const id = setTimeout(() => refresh(settings), 300);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  const handleSaveSettings = (s: Settings) => {
+    saveSettings(s);
+    setSettings(s);
+    setError(null);
+    setConsecutiveFailures(0);
+    setAuthBlocked(false);
+    setLimit(BASE_LIMIT);
+  };
+
+  const handleLoadMore = () => {
+    const next = limit + LOAD_MORE_STEP;
+    setLimit(next);
+    limitRef.current = next;
+    refresh(settings);
+  };
+
   const byStatus = (status: ScanStatus) =>
     scans.filter((s) => s.status === status);
+
+  const isSearchActive = search.trim().length > 0;
+  const isStale = consecutiveFailures >= STALE_AFTER_FAILURES || authBlocked;
+
+  const connectionStatus: ConnectionStatus = !settings.baseUrl
+    ? "disconnected"
+    : authBlocked
+    ? "error"
+    : isStale
+    ? "error"
+    : error
+    ? "warn"
+    : lastUpdated
+    ? "ok"
+    : "connecting";
 
   return (
     <main className="flex min-h-screen">
@@ -90,10 +193,8 @@ export default function Home() {
         <div className="mb-6">
           <ConnectionSettingsPanel
             settings={settings}
-            onSave={(s) => {
-              saveSettings(s);
-              setSettings(s);
-            }}
+            status={connectionStatus}
+            onSave={handleSaveSettings}
           />
         </div>
 
@@ -115,14 +216,20 @@ export default function Home() {
             >
               <span className="text-paper/70">{label}</span>
               <span className="font-mono text-paper">
-                {stats?.counts[key] ?? "—"}
+                {isSearchActive
+                  ? byStatus(key).length
+                  : stats?.counts[key] ?? "—"}
               </span>
             </div>
           ))}
         </div>
 
         <div className="mt-auto pt-6 text-[11px] text-paper/30">
-          {error ? (
+          {authBlocked ? (
+            <p className="text-brick/80">
+              {error} Polling stopped — re-save settings once it&apos;s fixed.
+            </p>
+          ) : error ? (
             <p className="text-brick/80">{error}</p>
           ) : lastUpdated ? (
             <p>updated {lastUpdated.toLocaleTimeString()}</p>
@@ -134,7 +241,7 @@ export default function Home() {
 
       {/* Main board */}
       <section className="flex flex-1 flex-col bg-paper px-6 py-6">
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between">
           <h1 className="font-display text-xl font-semibold text-ink">
             Pipeline board
           </h1>
@@ -145,6 +252,29 @@ export default function Home() {
             className="w-64 rounded-full border border-line bg-white px-4 py-1.5 text-sm text-ink outline-none focus:border-blueprint"
           />
         </div>
+
+        {settings.baseUrl && (
+          <div className="mb-3 flex items-center gap-3 text-[11px] text-ink/40">
+            {isStale && (
+              <span className="rounded-full bg-brick/10 px-2 py-0.5 font-medium text-brick">
+                data may be stale
+              </span>
+            )}
+            {scansTotal !== null && (
+              <span>
+                showing {Math.min(scans.length, limit)} of {scansTotal}
+                {scansTotal > scans.length && (
+                  <button
+                    onClick={handleLoadMore}
+                    className="ml-2 rounded-full border border-line px-2 py-0.5 text-ink/60 transition hover:border-blueprint hover:text-blueprint"
+                  >
+                    load more
+                  </button>
+                )}
+              </span>
+            )}
+          </div>
+        )}
 
         {!settings.baseUrl ? (
           <div className="flex flex-1 items-center justify-center">
@@ -159,14 +289,22 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-1 gap-4 overflow-x-auto">
+          <div
+            className={`flex flex-1 gap-4 overflow-x-auto transition-opacity ${
+              isStale ? "opacity-60" : ""
+            }`}
+          >
             {STATUS_ORDER.map(({ key, label }) => (
               <Column
                 key={key}
                 status={key}
                 label={label}
                 scans={byStatus(key)}
-                count={stats?.counts[key] ?? byStatus(key).length}
+                count={
+                  isSearchActive
+                    ? byStatus(key).length
+                    : stats?.counts[key] ?? byStatus(key).length
+                }
               />
             ))}
           </div>

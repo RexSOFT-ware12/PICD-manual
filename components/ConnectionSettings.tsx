@@ -3,11 +3,36 @@
 import { useState } from "react";
 import type { ConnectionSettings as Settings } from "@/lib/api";
 
+export type ConnectionStatus =
+  | "disconnected" // no baseUrl configured yet
+  | "connecting" // baseUrl set, first fetch hasn't resolved yet
+  | "ok" // last poll succeeded recently
+  | "warn" // a poll failed but we haven't crossed the stale threshold yet
+  | "error"; // stale (repeated failures) or blocked on a bad API key
+
+const dotByStatus: Record<ConnectionStatus, string> = {
+  disconnected: "bg-slate",
+  connecting: "bg-amber animate-pulse",
+  ok: "bg-sage",
+  warn: "bg-amber",
+  error: "bg-brick",
+};
+
+const labelByStatus: Record<ConnectionStatus, string> = {
+  disconnected: "not connected",
+  connecting: "connecting…",
+  ok: "connected",
+  warn: "connection issue",
+  error: "connection lost",
+};
+
 export default function ConnectionSettingsPanel({
   settings,
+  status,
   onSave,
 }: {
   settings: Settings;
+  status: ConnectionStatus;
   onSave: (s: Settings) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -18,15 +43,20 @@ export default function ConnectionSettingsPanel({
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
+        title={labelByStatus[status]}
         className="flex items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-xs text-paper/70 transition hover:border-white/30 hover:text-paper"
       >
-        <span className="h-1.5 w-1.5 rounded-full bg-amber" />
+        <span className={`h-1.5 w-1.5 rounded-full ${dotByStatus[status]}`} />
         connection
       </button>
       {open && (
         <div className="absolute left-0 top-10 z-20 w-72 rounded-lg border border-white/10 bg-[#16202f] p-4 shadow-xl">
-          <p className="mb-3 font-display text-sm text-paper">
+          <p className="mb-3 flex items-center gap-2 font-display text-sm text-paper">
             Backend connection
+            <span className="flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal text-paper/40">
+              <span className={`h-1.5 w-1.5 rounded-full ${dotByStatus[status]}`} />
+              {labelByStatus[status]}
+            </span>
           </p>
           <label className="mb-1 block text-[11px] uppercase tracking-wide text-paper/50">
             API base URL
