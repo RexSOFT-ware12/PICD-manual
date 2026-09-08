@@ -541,6 +541,8 @@ export default function Home() {
         )}
       </section>
 
+      </main>
+
       <div
         className="fixed bottom-5 right-5 z-40"
         onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("scale-110"); }}
@@ -562,7 +564,6 @@ export default function Home() {
         </button>
         {deleteMode && <p className="absolute bottom-14 right-0 whitespace-nowrap rounded-full border border-brick/20 bg-white px-3 py-1.5 text-[10px] font-medium text-brick shadow-md">click or drag a card here</p>}
       </div>
-      </main>
     </>
   );
 }
