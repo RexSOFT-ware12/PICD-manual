@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { ApiError, isAbortError, loadSettings, retryScan, type ScanSummary } from "@/lib/api";
 
@@ -83,6 +84,12 @@ export default function ScanDetailModal({
   const [retryState, setRetryState] = useState<
     "idle" | "retrying" | "done" | "error"
   >("idle");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
   const [retryError, setRetryError] = useState<string | null>(null);
 
   // Esc to close, and lock background scroll while open.
@@ -113,9 +120,11 @@ export default function ScanDetailModal({
     }
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[100] flex animate-fade-in items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div
@@ -195,6 +204,7 @@ export default function ScanDetailModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
