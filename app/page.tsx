@@ -240,7 +240,7 @@ export default function Home() {
       </aside>
 
       {/* Main board */}
-      <section className="flex flex-1 flex-col bg-paper px-6 py-6">
+      <section className="flex min-w-0 flex-1 flex-col bg-paper px-6 py-6">
         <div className="mb-2 flex items-center justify-between">
           <h1 className="font-display text-xl font-semibold text-ink">
             Pipeline board
@@ -290,7 +290,7 @@ export default function Home() {
           </div>
         ) : (
           <div
-            className={`flex flex-1 gap-4 overflow-x-auto transition-opacity ${
+            className={`grid flex-1 grid-cols-1 gap-4 overflow-y-auto transition-opacity sm:grid-cols-2 xl:grid-cols-4 ${
               isStale ? "opacity-60" : ""
             }`}
           >

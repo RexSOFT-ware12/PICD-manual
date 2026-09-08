@@ -61,15 +61,15 @@ function Thumb({ src, alt }: { src: string; alt: string }) {
 export default function ScanCard({ scan }: { scan: ScanSummary }) {
   return (
     <div
-      className={`rounded-md border border-line border-l-[3px] bg-white/70 p-3 shadow-sm ${
+      className={`min-w-0 rounded-md border border-line border-l-[3px] bg-white/70 p-3 shadow-sm ${
         accentByStatus[scan.status] ?? "border-l-slate"
       }`}
     >
-      <div className="mb-2 flex items-center justify-between">
-        <span className="font-mono text-[11px] text-ink/60">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="truncate font-mono text-[11px] text-ink/60">
           {scan.scan_id.slice(0, 8)}…
         </span>
-        <span className="font-mono text-[10px] text-ink/40">
+        <span className="shrink-0 font-mono text-[10px] text-ink/40">
           {timeAgo(scan.status === "queued" ? scan.created_at : scan.updated_at)}
         </span>
       </div>
@@ -83,23 +83,27 @@ export default function ScanCard({ scan }: { scan: ScanSummary }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-ink/70">{scan.user_id ?? "unknown user"}</span>
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="truncate text-ink/70">{scan.user_id ?? "unknown user"}</span>
         {scan.gender && (
-          <span className="rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/50">
+          <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/50">
             {scan.gender}
           </span>
         )}
       </div>
 
       {scan.status === "failed" && scan.error && (
-        <p className="mt-2 line-clamp-2 rounded bg-brick/10 px-2 py-1 text-[11px] text-brick">
+        // break-words is the key fix: a raw, unbroken URL in an error message
+        // (e.g. an expired S3 link) has no natural wrap points, so without
+        // this it silently stretches the card — and the whole board — far
+        // past its column, forcing an ugly horizontal scrollbar.
+        <p className="mt-2 line-clamp-2 break-words rounded bg-brick/10 px-2 py-1 text-[11px] text-brick">
           {scan.error}
         </p>
       )}
 
       {scan.status === "completed" && scan.daz_template && (
-        <p className="mt-2 font-mono text-[10px] text-sage">
+        <p className="mt-2 truncate font-mono text-[10px] text-sage">
           {scan.daz_template}
         </p>
       )}

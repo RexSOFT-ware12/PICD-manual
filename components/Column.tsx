@@ -22,7 +22,7 @@ export default function Column({
   count: number;
 }) {
   return (
-    <div className="flex min-w-[260px] flex-1 flex-col">
+    <div className="flex min-w-0 flex-col">
       <div className="mb-3 flex items-center gap-2 px-1">
         <span className={`h-2 w-2 rounded-full ${dotByStatus[status]}`} />
         <h2 className="font-display text-sm font-semibold text-ink">
