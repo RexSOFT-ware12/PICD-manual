@@ -18,11 +18,38 @@ const nav = [
   { href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage" },
 ];
 
+let sessionAdminCache: AuthMe | null = null;
+const ADMIN_CACHE_KEY = "picd-auth-admin";
+
+function readCachedAdmin(): AuthMe | null {
+  if (sessionAdminCache) return sessionAdminCache;
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(ADMIN_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AuthMe;
+    if (parsed?.username && Array.isArray(parsed.permissions)) {
+      sessionAdminCache = parsed;
+      return parsed;
+    }
+  } catch {}
+  return null;
+}
+
+function cacheAdmin(admin: AuthMe) {
+  sessionAdminCache = admin;
+  if (typeof window !== "undefined") {
+    try { window.sessionStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(admin)); } catch {}
+  }
+}
+
+
+
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [admin, setAdmin] = useState<AuthMe | null>(null);
-  const [checking, setChecking] = useState(true);
+  const [admin, setAdmin] = useState<AuthMe | null>(() => readCachedAdmin());
+  const [, setChecking] = useState(() => !readCachedAdmin());
   const [loggingOut, setLoggingOut] = useState(false);
   const settings = useMemo(() => loadSettings(), []);
   const connected = !!settings.baseUrl;
@@ -30,16 +57,25 @@ export default function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     if (!settings.baseUrl) { setChecking(false); router.replace("/login"); return; }
+    // Revalidate silently in the background. Cached session data keeps navigation instant.
     fetchCurrentAdmin(settings).then((me) => {
-      if (!cancelled) { setAdmin(me); setChecking(false); }
-    }).catch(() => {
-      if (!cancelled) { setChecking(false); router.replace("/login"); }
+      if (!cancelled) { cacheAdmin(me); setAdmin(me); setChecking(false); }
+    }).catch((error) => {
+      if (!cancelled) {
+        setChecking(false);
+        if (error?.status === 401) {
+          sessionAdminCache = null;
+          try { window.sessionStorage.removeItem(ADMIN_CACHE_KEY); } catch {}
+          setAdmin(null);
+          router.replace("/login");
+        }
+      }
     });
     return () => { cancelled = true; };
   }, [router, settings]);
 
-  if (checking || !admin) {
-    return <div className="flex h-screen items-center justify-center bg-paper"><div className="rounded-2xl border border-line bg-white px-7 py-6 text-center shadow-sm"><div className="mx-auto mb-3 h-2.5 w-2.5 animate-pulse rounded-full bg-blueprint"/><p className="font-display text-sm font-semibold">Verifying secure session</p><p className="mt-1 text-xs text-ink/40">Please wait…</p></div></div>;
+  if (!admin) {
+    return <div className="flex h-screen items-center justify-center bg-paper"><div className="rounded-2xl border border-line bg-white px-7 py-6 text-center shadow-sm"><div className="mx-auto mb-3 h-2.5 w-2.5 animate-pulse rounded-full bg-blueprint"/><p className="font-display text-sm font-semibold">Signing you in…</p><p className="mt-1 text-xs text-ink/40">Preparing your dashboard</p></div></div>;
   }
 
   const can = (permission: string) => admin.is_super_admin || admin.permissions.includes(permission) || (permission === "admins.manage" && admin.is_super_admin);
@@ -50,6 +86,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
     if (loggingOut) return;
     setLoggingOut(true);
     try { await logoutAdmin(loadSettings()); } catch {}
+    sessionAdminCache = null;
+    try { window.sessionStorage.removeItem(ADMIN_CACHE_KEY); } catch {}
     router.replace("/login");
   };
 
