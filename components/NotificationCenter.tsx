@@ -84,7 +84,7 @@ export default function NotificationCenter() {
 
   return <div className="relative" ref={ref}>
     <button onClick={() => setOpen(v => !v)} aria-label="Notifications" className={`relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-paper/70 transition hover:bg-white/10 hover:text-paper ${ringing ? "notification-ring" : ""}`}>
-      <span className="text-lg">♧</span>
+      <span className="text-lg" aria-hidden="true">🔔</span>
       {unread > 0 && <span className="absolute right-1 top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-brick px-1 text-[9px] font-bold text-paper">{unread > 9 ? "9+" : unread}</span>}
     </button>
     {open && <div className="absolute left-0 top-12 z-50 w-[380px] overflow-hidden rounded-2xl border border-line bg-paper text-ink shadow-2xl">

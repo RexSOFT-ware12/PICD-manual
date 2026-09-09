@@ -1,9 +1,10 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/logs/page": "app/logs/page.js",
   "/audit/page": "app/audit/page.js",
   "/analytics/page": "app/analytics/page.js",
+  "/logs/page": "app/logs/page.js",
   "/page": "app/page.js",
-  "/system/page": "app/system/page.js",
-  "/workers/page": "app/workers/page.js"
+  "/notifications/page": "app/notifications/page.js",
+  "/workers/page": "app/workers/page.js",
+  "/system/page": "app/system/page.js"
 }
