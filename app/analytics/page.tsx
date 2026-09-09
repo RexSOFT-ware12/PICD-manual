@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import AppShell from "@/components/AppShell";
 import { ApiError, fetchAnalytics, loadSettings, type AnalyticsBucket, type AnalyticsResponse, type ScanStatus } from "@/lib/api";
 
 const statuses: ScanStatus[] = ["queued", "processing", "completed", "failed"];
@@ -57,7 +58,7 @@ export default function AnalyticsPage() {
   const [preset,setPreset]=useState("week"); const [from,setFrom]=useState(""); const [to,setTo]=useState(""); const [data,setData]=useState<AnalyticsResponse|null>(null); const [loading,setLoading]=useState(false); const [error,setError]=useState<string|null>(null); const [lastUpdated,setLastUpdated]=useState<Date|null>(null);
   const load=useCallback(async()=>{setLoading(true);setError(null);try{const range=preset==="custom"?{from:from||undefined,to:to||undefined}:rangeForPreset(preset);setData(await fetchAnalytics(loadSettings(),range.from,range.to)); setLastUpdated(new Date());}catch(e){setError(e instanceof ApiError?e.message:"Could not load analytics.");}finally{setLoading(false);}},[preset,from,to]);
   useEffect(()=>{load()},[load]);
-  return <main className="min-h-screen animate-app-enter bg-paper px-4 py-6 sm:px-8"><div className="mx-auto max-w-7xl">
+  return <AppShell><div className="h-full overflow-y-auto animate-app-enter bg-paper px-8 py-6"><div className="mx-auto max-w-7xl">
     <header className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><a href="/" className="text-[11px] font-medium text-blueprint hover:underline">← Pipeline board</a><h1 className="mt-2 font-display text-3xl font-semibold">Scan analytics</h1><p className="mt-1 text-sm text-ink/45">Compare incoming scans by day, week and month.</p></div><div className="flex items-center gap-2"><button onClick={()=>load()} disabled={loading} className="rounded-xl border border-line bg-white px-4 py-2.5 text-xs font-semibold text-ink/65 shadow-sm transition hover:-translate-y-0.5 hover:border-blueprint hover:text-blueprint disabled:opacity-40">{loading?"Refreshing…":"Refresh"}</button><button onClick={()=>data&&exportCsv(data)} disabled={!data} className="rounded-xl bg-blueprint px-4 py-2.5 text-xs font-semibold text-paper shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-40">Export Excel-compatible CSV</button></div></header>
     <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white/70 p-2">{[["today","Today"],["week","This week"],["month","This month"],["30d","Last 30 days"]].map(([k,l])=><button key={k} onClick={()=>setPreset(k)} className={`rounded-full px-3 py-1.5 text-[11px] ${preset===k?"bg-blueprint text-paper":"bg-ink/5 text-ink/55 hover:bg-ink/10"}`}>{l}</button>)}<button onClick={()=>setPreset("custom")} className={`rounded-full px-3 py-1.5 text-[11px] ${preset==="custom"?"bg-blueprint text-paper":"bg-ink/5 text-ink/55"}`}>Custom</button>{preset==="custom"&&<><input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="rounded-full border border-line px-3 py-1.5 text-[11px]"/><span className="text-xs text-ink/30">to</span><input type="date" value={to} onChange={e=>setTo(e.target.value)} className="rounded-full border border-line px-3 py-1.5 text-[11px]"/></>}</div>
     {error&&<div className="mb-5 rounded-xl border border-brick/20 bg-brick/10 px-4 py-3 text-sm text-brick">{error}</div>}
@@ -72,5 +73,5 @@ export default function AnalyticsPage() {
       <div className={loading ? "mt-4 grid gap-4 lg:grid-cols-2 opacity-60 transition-opacity" : "mt-4 grid gap-4 lg:grid-cols-2"}><LineChart rows={data.weekly}/><BarChart rows={data.monthly} title="Monthly incoming scans"/></div>
       <p className="mt-5 text-[11px] text-ink/35">{lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})} · ` : ""}Range: {data.from} → {data.to} · {data.total} incoming scans. Export includes daily, weekly and monthly breakdowns.</p>
     </>}
-  </div></main>;
+  </div></div></AppShell>;
 }

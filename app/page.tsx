@@ -23,6 +23,7 @@ import ConnectionSettingsPanel, {
   type ConnectionStatus,
 } from "@/components/ConnectionSettings";
 import Column from "@/components/Column";
+import AppShell from "@/components/AppShell";
 
 const STATUS_ORDER: { key: ScanStatus; label: string }[] = [
   { key: "queued", label: "Queued" },
@@ -323,99 +324,7 @@ export default function Home() {
     : "connecting";
 
   return (
-    <>
-      <div className="mobile-unavailable" role="status" aria-live="polite">
-        <div className="mobile-unavailable-card">
-          <p className="mobile-unavailable-kicker">PICD Scan Queue Monitor</p>
-          <h1>Desktop dashboard only</h1>
-          <p>This monitoring dashboard is designed for desktop screens and is not available on mobile devices.</p>
-        </div>
-      </div>
-      <main className="desktop-dashboard h-screen min-h-0 overflow-hidden animate-app-enter bg-paper flex">
-      {/* Left rail */}
-      <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden bg-blueprint px-5 py-6 text-paper shadow-2xl shadow-blueprint/10 sm:w-64">
-        <div className="mb-8">
-          <p className="font-display text-lg font-semibold leading-tight">
-            Scan Queue
-            <br />
-            Monitor
-          </p>
-          <p className="mt-1 text-xs text-paper/50">PICD measurement pipeline</p>
-        </div>
-
-        <div className="mb-6">
-          <ConnectionSettingsPanel
-            settings={settings}
-            status={connectionStatus}
-            onSave={handleSaveSettings}
-          />
-        </div>
-
-        <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/10 backdrop-blur-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-paper/40">
-                Manual queue
-              </p>
-              <p className="mt-1 font-display text-3xl font-semibold">
-                <AnimatedStat value={stats?.queue_depth ?? null} />
-              </p>
-              <p className="text-[11px] text-paper/40">
-                incoming scans waiting for approval
-              </p>
-            </div>
-            <span className={`mt-1 h-2.5 w-2.5 rounded-full ${stats?.processing ? "animate-pulse bg-amber" : "bg-sage"}`} />
-          </div>
-          <button
-            onClick={handleTriggerNext}
-            disabled={triggering || stats?.processing || (stats?.queue_depth ?? 0) === 0}
-            className="mt-4 w-full rounded-lg bg-paper px-3 py-2.5 text-xs font-semibold text-blueprint shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-35"
-          >
-            {triggering ? "Releasing…" : stats?.processing ? "Processing current scan…" : "Process next scan"}
-          </button>
-          <p className="mt-2 text-center text-[10px] text-paper/30">
-            Nothing processes automatically.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          {STATUS_ORDER.map(({ key, label }) => (
-            <div
-              key={key}
-              className="flex items-center justify-between rounded border border-white/5 bg-white/[0.03] px-3 py-2 text-sm transition-colors"
-            >
-              <span className="text-paper/70">{label}</span>
-              <span className="font-mono text-paper">
-                <AnimatedStat
-                  value={isSearchActive ? byStatus(key).length : stats?.counts[key] ?? null}
-                />
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-auto pt-6 text-[11px] text-paper/30">
-          {authBlocked ? (
-            <p className="animate-fade-in text-brick/80">
-              {error} Polling stopped — re-save settings once it&apos;s fixed.
-            </p>
-          ) : error ? (
-            <p className="animate-fade-in text-brick/80">{error}</p>
-          ) : lastUpdated ? (
-            <p
-              title={lastUpdated.toLocaleTimeString()}
-              className="flex items-center gap-1.5"
-            >
-              <span className="h-1 w-1 rounded-full bg-sage animate-[pulse_2.5s_ease-in-out_infinite]" />
-              updated {formatAgo(lastUpdated, now)}
-            </p>
-          ) : (
-            <p>connecting…</p>
-          )}
-        </div>
-      </aside>
-
-      {/* Main board */}
+    <AppShell>
       <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-paper px-4 py-5 sm:px-6 sm:py-6">
         <div className="mb-3 flex items-center justify-between gap-4">
           <div className="min-w-0">
@@ -426,8 +335,6 @@ export default function Home() {
             <p className="mt-1 text-[11px] text-ink/35">Drag a queued card to Processing to run that scan. Drag failed/processing cards back to Queue. Completed scans are locked.</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <a href="/system" className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] font-medium text-ink/60 transition hover:-translate-y-0.5 hover:border-blueprint hover:text-blueprint sm:inline-flex">System ↗</a>
-            <a href="/analytics" className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] font-medium text-ink/60 transition hover:-translate-y-0.5 hover:border-blueprint hover:text-blueprint sm:inline-flex">Analytics ↗</a>
             <button onClick={() => setCompact(v => !v)} className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] text-ink/55 transition hover:border-blueprint hover:text-blueprint sm:inline-flex">{compact ? "Comfortable" : "Compact"}</button>
             <div className="relative">
             <input
@@ -542,9 +449,6 @@ export default function Home() {
         )}
       </section>
 
-      </main>
-
-
-    </>
+    </AppShell>
   );
 }
