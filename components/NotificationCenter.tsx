@@ -3,33 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchAlerts, loadSettings, markAlertRead, markAllAlertsRead, type AlertItem } from "@/lib/api";
 
-function playNotificationSound(kind: "incoming" | "completed" | "failed") {
-  try {
-    const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const now = ctx.currentTime;
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.connect(ctx.destination);
-
-    const notes = kind === "failed" ? [220, 175, 220] : kind === "completed" ? [660, 880] : [740, 980];
-    const spacing = kind === "failed" ? 0.16 : 0.12;
-    notes.forEach((frequency, index) => {
-      const osc = ctx.createOscillator();
-      osc.type = kind === "failed" ? "square" : "sine";
-      osc.frequency.setValueAtTime(frequency, now + index * spacing);
-      osc.connect(gain);
-      osc.start(now + index * spacing);
-      osc.stop(now + index * spacing + 0.1);
-    });
-    gain.gain.exponentialRampToValueAtTime(0.11, now + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + notes.length * spacing + 0.22);
-    window.setTimeout(() => void ctx.close(), 900);
-  } catch {
-    // Browser audio permissions/autoplay policy can block sound; visual alerts still work.
-  }
-}
+import { loadNotificationSound, playNotificationSound } from "@/lib/notificationSound";
 
 export default function NotificationCenter() {
   const [items, setItems] = useState<AlertItem[]>([]);
@@ -51,7 +25,7 @@ export default function NotificationCenter() {
 
     const newest = fresh[0];
     const kind = newest.severity === "critical" ? "failed" : newest.title.toLowerCase().includes("completed") ? "completed" : "incoming";
-    playNotificationSound(kind);
+    playNotificationSound(kind, loadNotificationSound());
     setRinging(true);
     window.setTimeout(() => setRinging(false), 1200);
   }, []);

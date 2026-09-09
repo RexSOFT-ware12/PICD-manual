@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
 import ConnectionSettingsPanel, { type ConnectionStatus } from "@/components/ConnectionSettings";
 import ConfirmModal from "@/components/ConfirmModal";
+import { NOTIFICATION_SOUNDS, loadNotificationSound, playNotificationSound, saveNotificationSound, type NotificationSound } from "@/lib/notificationSound";
 import {
   ApiError,
   fetchHealth,
@@ -109,9 +110,10 @@ export default function SystemPage() {
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ kind: string; key?: string; value?: boolean } | null>(null);
   const [activeSection, setActiveSection] = useState("email");
+  const [notificationSound, setNotificationSound] = useState<NotificationSound>("default");
   const loading = !!settings.baseUrl && (!state || !health || !email);
 
-  useEffect(() => setSettings(loadSettings()), []);
+  useEffect(() => { setSettings(loadSettings()); setNotificationSound(loadNotificationSound()); }, []);
 
   const load = useCallback(async () => {
     const s = loadSettings();
@@ -211,6 +213,7 @@ export default function SystemPage() {
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white px-3 py-2 shadow-sm">
           {[
             ["email", "Email Notifications"],
+            ["sound", "Notification Sound"],
             ["general", "General Settings"],
             ["features", "Feature Flags"],
             ["access", "Users & Access"],
@@ -274,6 +277,19 @@ export default function SystemPage() {
                 <EmailSidebar email={email} />
               </div>}
             </Card>
+
+            <div id="system-sound" className="scroll-mt-5"><Card className="p-5">
+              <div className="flex items-start justify-between gap-6">
+                <div><h2 className="font-display font-semibold">Notification sound</h2><p className="mt-1 text-xs leading-5 text-ink/40">Choose the sound played when a new dashboard notification arrives. Your choice is saved on this browser.</p></div>
+                <button onClick={() => playNotificationSound("incoming", notificationSound)} disabled={notificationSound === "silent"} className="shrink-0 rounded-lg border border-line bg-white px-3 py-2 text-[10px] font-bold text-ink/60 transition hover:border-blueprint/30 hover:text-blueprint disabled:cursor-not-allowed disabled:opacity-40">Test sound</button>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {NOTIFICATION_SOUNDS.map(option => <button key={option.value} onClick={() => { setNotificationSound(option.value); saveNotificationSound(option.value); if (option.value !== "silent") playNotificationSound("incoming", option.value); }} className={`flex items-center justify-between rounded-xl border px-3 py-3 text-left transition ${notificationSound === option.value ? "border-blueprint/40 bg-[#f6faff]" : "border-line bg-white hover:border-blueprint/20"}`}>
+                  <span><span className="block text-[11px] font-semibold">{option.label}</span><span className="mt-0.5 block text-[9px] leading-4 text-ink/35">{option.description}</span></span>
+                  <span className={`ml-3 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${notificationSound === option.value ? "border-blueprint bg-blueprint" : "border-ink/15"}`}>{notificationSound === option.value && <span className="h-1.5 w-1.5 rounded-full bg-paper"/>}</span>
+                </button>)}
+              </div>
+            </Card></div>
 
             <div id="system-general" className="scroll-mt-5"><Card className="p-5"><div className="mb-4 flex items-start justify-between"><div><h2 className="font-display font-semibold">General settings</h2><p className="mt-1 text-xs text-ink/40">Backend connection used by the authenticated desktop dashboard.</p></div><ConnectionSettingsPanel settings={settings} status={connectionStatus} onSave={save}/></div></Card></div>
 
