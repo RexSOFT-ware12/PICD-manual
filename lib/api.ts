@@ -520,3 +520,23 @@ async function uploadGAM(settings: ConnectionSettings, file: File, path: string,
 }
 export const previewGAMImport = (s: ConnectionSettings, f: File) => uploadGAM(s,f,"/monitor/gam/import/preview");
 export const importGAM = (s: ConnectionSettings, f: File, mode: "replace"|"upsert") => uploadGAM(s,f,"/monitor/gam/import",mode);
+
+export interface CSVImportJob {
+  id: string; filename: string; collection: string; database: string;
+  status: "queued" | "running" | "completed" | "failed";
+  stage: string; stage_index: number; progress: number;
+  headers: string[]; columns_count: number; deleted: number; inserted: number;
+  logs: string[]; error?: string; created_at: string; completed_at?: string;
+}
+export const startCSVImport = async (s: ConnectionSettings, file: File) => {
+  if (!s.baseUrl) throw new ApiError("No backend URL configured yet.");
+  const res = await fetch(`${s.baseUrl.replace(/\/$/,"")}/monitor/csv-import/jobs`, {
+    method: "POST", credentials: "include",
+    headers: authHeaders({"Content-Type": file.type || "text/csv", "X-CSV-Filename": file.name}),
+    body: file, cache: "no-store",
+  });
+  if (!res.ok) { let detail = `Backend returned ${res.status}`; try { const b = await res.json(); if (typeof b?.detail === "string") detail = b.detail; } catch {} throw new ApiError(detail, res.status); }
+  return res.json() as Promise<CSVImportJob>;
+};
+export const fetchCSVImportJob = (s: ConnectionSettings, id: string) => request<CSVImportJob>(`/monitor/csv-import/jobs/${encodeURIComponent(id)}`, s);
+export const fetchCSVImportStatus = (s: ConnectionSettings) => request<{active: CSVImportJob | null; pending_files: string[]}>("/monitor/csv-import/status", s);
