@@ -54,6 +54,27 @@ function AnimatedStat({ value }: { value: number | null }) {
   return <span className="tabular-nums">{display}</span>;
 }
 
+function DashboardSkeleton() {
+  return (
+    <div className="contents">
+      <div className="mb-3 grid grid-cols-6 gap-2">
+        <div className="col-span-2 h-[78px] animate-pulse rounded-xl border border-line bg-white" />
+        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-[78px] animate-pulse rounded-xl border border-line bg-white" />)}
+      </div>
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="min-h-20 rounded-xl bg-ink/[0.035] p-2">
+            <div className="mb-2 h-7 w-28 animate-pulse rounded-lg bg-ink/10" />
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((__, j) => <div key={j} className="h-24 animate-pulse rounded-xl border border-line bg-white" />)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function formatAgo(last: Date | null, now: number): string {
   if (!last) return "";
   const diffSec = Math.max(0, Math.round((now - last.getTime()) / 1000));
@@ -324,6 +345,8 @@ export default function Home() {
   const isSearchActive = search.trim().length > 0;
   const isStale = consecutiveFailures >= STALE_AFTER_FAILURES || authBlocked;
 
+  const initialLoading = !!settings.baseUrl && stats === null && scans.length === 0 && !error;
+
   const connectionStatus: ConnectionStatus = !settings.baseUrl
     ? "disconnected"
     : authBlocked
@@ -369,7 +392,7 @@ export default function Home() {
           </div>
         </div>
 
-        {settings.baseUrl && (
+        {settings.baseUrl && !initialLoading && (
           <div className="mb-3 grid grid-cols-6 gap-2">
             <div className="col-span-2 rounded-xl border border-line bg-white px-4 py-3 shadow-sm">
               <div className="flex items-center justify-between gap-3">
@@ -436,7 +459,9 @@ export default function Home() {
           </div>
         )}
 
-        {!settings.baseUrl ? (
+        {initialLoading ? (
+          <DashboardSkeleton />
+        ) : !settings.baseUrl ? (
           <div className="flex flex-1 items-center justify-center">
             <div className="animate-fade-in-up max-w-sm text-center">
               <p className="font-display text-lg text-ink">
