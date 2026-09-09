@@ -532,7 +532,7 @@ export const startCSVImport = async (s: ConnectionSettings, file: File) => {
   if (!s.baseUrl) throw new ApiError("No backend URL configured yet.");
   const res = await fetch(`${s.baseUrl.replace(/\/$/,"")}/monitor/csv-import/jobs`, {
     method: "POST", credentials: "include",
-    headers: authHeaders({"Content-Type": file.type || "text/csv", "X-CSV-Filename": file.name}),
+    headers: authHeaders({"Content-Type": file.type || "application/octet-stream", "X-CSV-Filename": file.name}),
     body: file, cache: "no-store",
   });
   if (!res.ok) { let detail = `Backend returned ${res.status}`; try { const b = await res.json(); if (typeof b?.detail === "string") detail = b.detail; } catch {} throw new ApiError(detail, res.status); }
