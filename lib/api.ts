@@ -183,164 +183,6 @@ export function isAbortError(e: unknown): boolean {
 
 export { ApiError };
 
-// ---------------------------------------------------------------------------
-// v2 additions: live push, worker control, stuck watchdog, bulk actions,
-// runtime config, alerts, system info. Mirrors the fetch pattern above —
-// each function throws ApiError on failure so callers can share one
-// error-handling path with the original endpoints.
-// ---------------------------------------------------------------------------
-
-async function requestV2<T>(
-  path: string,
-  settings: ConnectionSettings,
-  init: RequestInit = {}
-): Promise<T> {
-  if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
-  const url = `${settings.baseUrl.replace(/\/$/, "")}${path}`;
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      ...init,
-      headers: {
-        ...(settings.apiKey ? { "X-API-Key": settings.apiKey } : {}),
-        ...(init.body ? { "Content-Type": "application/json" } : {}),
-        ...(init.headers || {}),
-      },
-      cache: "no-store",
-    });
-  } catch (e) {
-    throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running.");
-  }
-  if (!res.ok) {
-    if (res.status === 401) throw new ApiError("Rejected — check the API key.", 401);
-    let detail = `Backend returned ${res.status}`;
-    try {
-      const body = await res.json();
-      if (typeof body?.detail === "string") detail = body.detail;
-    } catch {}
-    throw new ApiError(detail, res.status);
-  }
-  return res.json() as Promise<T>;
-}
-
-/** Builds the ws:// or wss:// URL for the live push endpoint from
- * whatever http(s) base URL is configured. */
-export function monitorWsUrl(settings: ConnectionSettings): string | null {
-  if (!settings.baseUrl) return null;
-  try {
-    const httpUrl = new URL(settings.baseUrl);
-    const wsProtocol = httpUrl.protocol === "https:" ? "wss:" : "ws:";
-    const base = `${wsProtocol}//${httpUrl.host}${httpUrl.pathname.replace(/\/$/, "")}/monitor/ws`;
-    return settings.apiKey ? `${base}?x_api_key=${encodeURIComponent(settings.apiKey)}` : base;
-  } catch {
-    return null;
-  }
-}
-
-export interface WorkerPauseResponse {
-  paused: boolean;
-}
-
-export function pauseWorker(settings: ConnectionSettings) {
-  return requestV2<WorkerPauseResponse>("/monitor/queue/pause", settings, { method: "POST" });
-}
-
-export function resumeWorker(settings: ConnectionSettings) {
-  return requestV2<WorkerPauseResponse>("/monitor/queue/resume", settings, { method: "POST" });
-}
-
-export function restartWorker(settings: ConnectionSettings) {
-  return requestV2<{ restarted: boolean }>("/monitor/queue/restart-worker", settings, { method: "POST" });
-}
-
-export interface StuckScan {
-  scan_id: string;
-  updated_at: string | null;
-  minutes_processing: number | null;
-}
-
-export interface StuckScansResponse {
-  threshold_minutes: number;
-  stuck: StuckScan[];
-}
-
-export function fetchStuckScans(settings: ConnectionSettings, signal?: AbortSignal) {
-  return requestV2<StuckScansResponse>("/monitor/scans/stuck", settings, { signal });
-}
-
-export function forceFailScan(settings: ConnectionSettings, scanId: string) {
-  return requestV2<{ scan_id: string; status: ScanStatus }>(
-    `/monitor/scans/${encodeURIComponent(scanId)}/force-fail`,
-    settings,
-    { method: "POST" }
-  );
-}
-
-export interface BulkResult {
-  scan_id: string;
-  ok: boolean;
-  detail?: string;
-}
-
-export function bulkRetry(settings: ConnectionSettings, scanIds: string[]) {
-  return requestV2<{ results: BulkResult[] }>("/monitor/scans/bulk-retry", settings, {
-    method: "POST",
-    body: JSON.stringify({ scan_ids: scanIds }),
-  });
-}
-
-export function bulkDelete(settings: ConnectionSettings, scanIds: string[]) {
-  return requestV2<{ results: BulkResult[] }>("/monitor/scans/bulk-delete", settings, {
-    method: "POST",
-    body: JSON.stringify({ scan_ids: scanIds }),
-  });
-}
-
-export interface DashboardConfig {
-  stuck_threshold_minutes: number;
-  alert_webhook_url: string;
-  alert_on_failure: boolean;
-  alert_on_stuck: boolean;
-}
-
-export function fetchConfig(settings: ConnectionSettings) {
-  return requestV2<DashboardConfig>("/monitor/config", settings);
-}
-
-export function updateConfig(settings: ConnectionSettings, patch: Partial<DashboardConfig>) {
-  return requestV2<DashboardConfig>("/monitor/config", settings, {
-    method: "PUT",
-    body: JSON.stringify(patch),
-  });
-}
-
-export function testAlert(settings: ConnectionSettings) {
-  return requestV2<{ sent: boolean }>("/monitor/alerts/test", settings, { method: "POST" });
-}
-
-export interface SystemInfo {
-  git: {
-    commit: string | null;
-    branch: string | null;
-    last_commit_message: string | null;
-    dirty: boolean;
-  };
-  worker: {
-    paused: boolean;
-    processing_scan_id: string | null;
-    processing_since: string | null;
-    queue_depth: number;
-  };
-  process: {
-    uptime_seconds: number;
-    pid: number;
-  };
-}
-
-export function fetchSystemInfo(settings: ConnectionSettings, signal?: AbortSignal) {
-  return requestV2<SystemInfo>("/monitor/system/info", settings, { signal });
-}
-
 export interface TriggerResponse {
   scan_id: string;
   status: ScanStatus;
@@ -527,3 +369,24 @@ export async function reorderScan(settings: ConnectionSettings, scanId: string, 
     throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running.");
   }
 }
+
+export interface SystemState { paused: boolean; maintenance: boolean; features: Record<string, boolean>; config: Record<string, number>; uptime_seconds: number; }
+export interface HealthResponse { status: string; uptime_seconds: number; queue_depth: number; processing: boolean; mongo_configured: boolean; platform: string; python: string; tools: Record<string, boolean>; }
+export interface SystemRow { at: string; level?: string; action: string; detail: string; }
+
+async function postJson<T>(path: string, settings: ConnectionSettings, body: unknown): Promise<T> {
+  if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
+  try {
+    const res = await fetch(`${settings.baseUrl.replace(/\/$/, "")}${path}`, { method:"POST", headers:{"Content-Type":"application/json", ...(settings.apiKey ? {"X-API-Key":settings.apiKey}: {})}, body:JSON.stringify(body), cache:"no-store" });
+    if (!res.ok) { let detail=`Backend returned ${res.status}`; try { const b=await res.json(); if(typeof b?.detail === "string") detail=b.detail; } catch {} throw new ApiError(detail,res.status); }
+    return res.json();
+  } catch(e) { if(e instanceof ApiError) throw e; throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running."); }
+}
+export const fetchSystemState = (s: ConnectionSettings) => request<SystemState>("/monitor/system/state", s);
+export const fetchHealth = (s: ConnectionSettings) => request<HealthResponse>("/monitor/system/health", s);
+export const fetchAudit = (s: ConnectionSettings) => request<{items:SystemRow[]}>("/monitor/system/audit", s);
+export const fetchLogs = (s: ConnectionSettings, level="all") => request<{items:SystemRow[]}>(`/monitor/system/logs?level=${encodeURIComponent(level)}`, s);
+export const updateSystemControl = (s: ConnectionSettings, body: {paused?:boolean;maintenance?:boolean}) => postJson<SystemState>("/monitor/system/control",s,body);
+export const updateFeatures = (s: ConnectionSettings, body: Record<string,boolean>) => postJson<SystemState>("/monitor/system/features",s,body);
+export const updateSystemConfig = (s: ConnectionSettings, body: Record<string,number>) => postJson<SystemState>("/monitor/system/config",s,body);
+export const runDiagnostics = (s: ConnectionSettings) => postJson<{checks:{name:string;ok:boolean}[];ran_at:string}>("/monitor/system/diagnostics",s,{});

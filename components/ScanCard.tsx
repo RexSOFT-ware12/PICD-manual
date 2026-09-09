@@ -32,39 +32,7 @@ function Thumb({ src, alt }: { src: string; alt: string }) {
   return <div className="relative h-14 w-11 overflow-hidden rounded bg-ink/5">{!loaded && <div className="absolute inset-0 animate-pulse bg-ink/10" />}<Image ref={imgRef} src={src} alt={alt} fill sizes="48px" className={`object-cover transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`} unoptimized onLoad={() => setLoaded(true)} onError={() => setFailed(true)} /></div>;
 }
 
-export default function ScanCard({
-  scan,
-  style,
-  onRetried,
-  onMoved,
-  draggable = false,
-  deleteMode = false,
-  deleting = false,
-  onDelete,
-  onDropBefore,
-  compact = false,
-  selectable = false,
-  selected = false,
-  onToggleSelect,
-  stuck = false,
-  onForceFail,
-}: {
-  scan: ScanSummary;
-  style?: CSSProperties;
-  onRetried?: () => void;
-  onMoved?: () => void;
-  draggable?: boolean;
-  deleteMode?: boolean;
-  deleting?: boolean;
-  onDelete?: (scanId: string) => void;
-  onDropBefore?: (scanId: string, targetScanId: string) => void;
-  compact?: boolean;
-  selectable?: boolean;
-  selected?: boolean;
-  onToggleSelect?: (scanId: string) => void;
-  stuck?: boolean;
-  onForceFail?: (scanId: string) => void;
-}) {
+export default function ScanCard({ scan, style, onRetried, onMoved, draggable = false, deleteMode = false, deleting = false, onDelete, onDropBefore, compact = false }: { scan: ScanSummary; style?: CSSProperties; onRetried?: () => void; onMoved?: () => void; draggable?: boolean; deleteMode?: boolean; deleting?: boolean; onDelete?: (scanId: string) => void; onDropBefore?: (scanId: string, targetScanId: string) => void; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
 
@@ -115,40 +83,9 @@ export default function ScanCard({
     >
       {open && <ScanDetailModal scan={scan} onClose={() => setOpen(false)} onRetried={onRetried} />}
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-1.5">
-          {selectable && scan.status !== "completed" && (
-            <input
-              type="checkbox"
-              checked={selected}
-              onClick={(e) => e.stopPropagation()}
-              onChange={() => onToggleSelect?.(scan.scan_id)}
-              className="h-3.5 w-3.5 shrink-0 accent-blueprint"
-              aria-label={`Select scan ${scan.scan_id.slice(0, 8)}`}
-            />
-          )}
-          <span className="truncate font-mono text-[11px] text-ink/60">{scan.scan_id.slice(0, 8)}…</span>
-          {stuck && (
-            <span className="shrink-0 rounded-full bg-brick/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-brick" title="Processing far longer than expected">
-              stuck
-            </span>
-          )}
-        </span>
+        <span className="truncate font-mono text-[11px] text-ink/60">{scan.scan_id.slice(0, 8)}…</span>
         <div className="flex shrink-0 items-center gap-1">
           <span className="font-mono text-[10px] text-ink/40">{timeAgo(scan.status === "queued" ? scan.created_at : scan.updated_at)}</span>
-          {stuck && onForceFail && (
-            <button
-              type="button"
-              title="Clear the hung processing lock and mark this scan failed"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onForceFail(scan.scan_id);
-              }}
-              className="ml-1 rounded-md border border-brick/30 bg-brick/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-brick transition hover:bg-brick/20"
-            >
-              force-fail
-            </button>
-          )}
           {onDelete && scan.status !== "completed" && (
             <button
               type="button"

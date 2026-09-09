@@ -56,31 +56,6 @@ overrides it.
   the backend can be swapped from polling to the `callback_url`
   webhook it already supports, pushed via a WebSocket.
 
-## v2 additions
-
-Requires the companion `dashboard-v2-backend-additions` package applied
-to your backend first (adds `/monitor/ws`, pause/resume, stuck watchdog,
-bulk actions, config, alerts, system info).
-
-- **Live indicator** (top-left rail) — "live" when the WebSocket is
-  connected, "polling" when it falls back to the original 5s polling.
-  Either way the board keeps working the same; this only changes how
-  fast it notices a change.
-- **Worker controls** — pause the worker (finishes the current job,
-  takes nothing new), resume it, restart a dead worker task, and a
-  popover with the current git commit/branch and process uptime.
-- **Alerts panel** — set a Slack-compatible webhook URL and a
-  stuck-job threshold in minutes; toggle alerts on failure and/or on
-  stuck scans; send a test message.
-- **Stuck-job badge** — a `processing` card past the configured
-  threshold gets a "stuck" badge and a "force-fail" button, which
-  clears the hung lock so the queue can move on. This never touches
-  Photoshop/Illustrator/Daz on the Mac itself — check the machine if a
-  real process is actually still stuck.
-- **Bulk select** — checkboxes on non-completed cards; a floating
-  toolbar appears once you've selected any, to retry or delete them
-  all at once.
-
 ## Manual processing gate
 
 Incoming scans are accepted immediately but remain in the `queued` state. The backend worker is intentionally dormant until the dashboard calls `POST /monitor/queue/trigger-next`. One trigger releases exactly one scan; the next scan remains queued until another manual trigger.

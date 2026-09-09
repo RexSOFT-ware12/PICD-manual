@@ -11,8 +11,6 @@ import {
   deleteScan,
   loadSettings,
   saveSettings,
-  fetchStuckScans,
-  forceFailScan,
   ApiError,
   isAbortError,
   type ScanStatus,
@@ -21,16 +19,10 @@ import {
   type ConnectionSettings as Settings,
 } from "@/lib/api";
 import { useAnimatedNumber } from "@/lib/useAnimatedNumber";
-import { useLiveSocket, type LiveEvent } from "@/lib/useLiveSocket";
 import ConnectionSettingsPanel, {
   type ConnectionStatus,
 } from "@/components/ConnectionSettings";
-import WorkerControls from "@/components/WorkerControls";
-import AlertsSettingsPanel from "@/components/AlertsSettingsPanel";
-import BulkToolbar from "@/components/BulkToolbar";
 import Column from "@/components/Column";
-
-const STUCK_POLL_MS = 20000;
 
 const STATUS_ORDER: { key: ScanStatus; label: string }[] = [
   { key: "queued", label: "Queued" },
@@ -94,9 +86,6 @@ export default function Home() {
   const [compact, setCompact] = useState(false);
   const [showOnlyActive, setShowOnlyActive] = useState(false);
   const [deletingScan, setDeletingScan] = useState<string | null>(null);
-  const [workerPaused, setWorkerPaused] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [stuckIds, setStuckIds] = useState<Set<string>>(new Set());
 
   const searchRef = useRef(search);
   searchRef.current = search;
@@ -183,60 +172,6 @@ export default function Home() {
       setConsecutiveFailures((n) => n + 1);
     }
   }, [dateRange]);
-
-  // Live push (best-effort): refreshes immediately on a scan_update
-  // instead of waiting for the next 5s poll tick, and mirrors the
-  // worker's paused state from stats frames. Polling above stays as
-  // the source of truth/fallback if the socket can't connect.
-  const handleLiveEvent = useCallback(
-    (event: LiveEvent) => {
-      if (event.type === "stats") {
-        setWorkerPaused(event.paused);
-      } else if (event.type === "scan_update") {
-        refresh(settings);
-      }
-    },
-    [refresh, settings]
-  );
-  const { connected: liveConnected } = useLiveSocket(settings, handleLiveEvent);
-
-  // Stuck-job watchdog: poll GET /monitor/scans/stuck independently of
-  // the main board refresh so it keeps working even while searching a
-  // narrower slice of scans.
-  useEffect(() => {
-    if (!ready || !settings.baseUrl || authBlocked) return;
-    let cancelled = false;
-    const poll = () => {
-      fetchStuckScans(settings)
-        .then((res) => !cancelled && setStuckIds(new Set(res.stuck.map((s) => s.scan_id))))
-        .catch(() => {});
-    };
-    poll();
-    const id = setInterval(poll, STUCK_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [ready, settings, authBlocked]);
-
-  const toggleSelect = useCallback((scanId: string) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(scanId)) next.delete(scanId);
-      else next.add(scanId);
-      return next;
-    });
-  }, []);
-
-  const handleForceFail = async (scanId: string) => {
-    if (!window.confirm(`Force-fail ${scanId.slice(0, 8)}…? Only do this if the Mac's Photoshop/Illustrator/Daz session actually died.`)) return;
-    try {
-      await forceFailScan(settings, scanId);
-      await refresh(settings);
-    } catch (e) {
-      setTriggerMessage(e instanceof ApiError ? e.message : "Could not force-fail the scan.");
-    }
-  };
 
   // Main poll loop: only runs while the tab is visible and we're not
   // locked out on a bad API key. Pausing on visibilitychange avoids
@@ -408,25 +343,12 @@ export default function Home() {
           <p className="mt-1 text-xs text-paper/50">PICD measurement pipeline</p>
         </div>
 
-        <div className="mb-6 flex flex-wrap items-center gap-2">
+        <div className="mb-6">
           <ConnectionSettingsPanel
             settings={settings}
             status={connectionStatus}
             onSave={handleSaveSettings}
           />
-          <WorkerControls settings={settings} paused={workerPaused} onPausedChange={setWorkerPaused} />
-          <AlertsSettingsPanel settings={settings} />
-          {settings.baseUrl && (
-            <span
-              title={liveConnected ? "Receiving live push updates" : "Falling back to 5s polling"}
-              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] ${
-                liveConnected ? "border-sage/30 text-sage" : "border-white/10 text-paper/30"
-              }`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${liveConnected ? "bg-sage animate-pulse" : "bg-paper/20"}`} />
-              {liveConnected ? "live" : "polling"}
-            </span>
-          )}
         </div>
 
         <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/10 backdrop-blur-sm">
@@ -504,6 +426,7 @@ export default function Home() {
             <p className="mt-1 text-[11px] text-ink/35">Drag a queued card to Processing to run that scan. Drag failed/processing cards back to Queue. Completed scans are locked.</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <a href="/system" className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] font-medium text-ink/60 transition hover:-translate-y-0.5 hover:border-blueprint hover:text-blueprint sm:inline-flex">System ↗</a>
             <a href="/analytics" className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] font-medium text-ink/60 transition hover:-translate-y-0.5 hover:border-blueprint hover:text-blueprint sm:inline-flex">Analytics ↗</a>
             <button onClick={() => setCompact(v => !v)} className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] text-ink/55 transition hover:border-blueprint hover:text-blueprint sm:inline-flex">{compact ? "Comfortable" : "Compact"}</button>
             <div className="relative">
@@ -613,11 +536,6 @@ export default function Home() {
                 deletingScan={deletingScan}
                 onDelete={handleDelete}
                 compact={compact}
-                selectable={!deleteMode}
-                selectedIds={selectedIds}
-                onToggleSelect={toggleSelect}
-                stuckIds={stuckIds}
-                onForceFail={handleForceFail}
               />
             ))}
           </div>
@@ -626,15 +544,7 @@ export default function Home() {
 
       </main>
 
-      <BulkToolbar
-        settings={settings}
-        selectedIds={Array.from(selectedIds)}
-        onClear={() => setSelectedIds(new Set())}
-        onDone={() => {
-          setSelectedIds(new Set());
-          refresh(settings);
-        }}
-      />
+
     </>
   );
 }
