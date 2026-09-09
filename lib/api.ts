@@ -497,7 +497,7 @@ export const sendEmailTest = (s: ConnectionSettings) => postJson<{sent:boolean}>
 
 
 export interface AlertItem { id: string; at: string; severity: "info" | "warning" | "critical" | "success"; title: string; message: string; source: string; read: boolean; }
-export const fetchAlerts = (s: ConnectionSettings) => request<{items:AlertItem[]; unread:number}>("/monitor/alerts", s);
+export const fetchAlerts = (s: ConnectionSettings, limit = 50) => request<{items:AlertItem[]; unread:number}>(`/monitor/alerts?limit=${limit}`, s);
 export const markAlertRead = (s: ConnectionSettings, id: string) => postJson<{ok:boolean}>(`/monitor/alerts/${encodeURIComponent(id)}/read`, s, {});
 export const markAllAlertsRead = (s: ConnectionSettings) => postJson<{ok:boolean}>("/monitor/alerts/read-all", s, {});
 

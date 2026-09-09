@@ -12,6 +12,8 @@ export default function NotificationCenter() {
   const ref = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
   const knownIds = useRef(new Set<string>());
+  const [tabVisible, setTabVisible] = useState(true);
+  const inFlight = useRef<AbortController | null>(null);
 
   const announce = useCallback((alerts: AlertItem[]) => {
     if (!initialized.current) {
@@ -33,18 +35,29 @@ export default function NotificationCenter() {
   const load = useCallback(async () => {
     const s = loadSettings();
     if (!s.baseUrl) return;
+    inFlight.current?.abort();
+    const controller = new AbortController();
+    inFlight.current = controller;
     try {
-      const next = (await fetchAlerts(s)).items;
+      const next = (await fetchAlerts(s, 50)).items;
+      if (controller.signal.aborted) return;
       setItems(next);
       announce(next);
     } catch {}
   }, [announce]);
 
   useEffect(() => {
-    load();
-    const id = setInterval(load, 2500);
+    const onVisibility = () => setTabVisible(!document.hidden);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => { document.removeEventListener("visibilitychange", onVisibility); inFlight.current?.abort(); };
+  }, []);
+
+  useEffect(() => {
+    if (!tabVisible) return;
+    void load();
+    const id = setInterval(() => void load(), 5000);
     return () => clearInterval(id);
-  }, [load]);
+  }, [load, tabVisible]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };

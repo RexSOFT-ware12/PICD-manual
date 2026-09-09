@@ -34,7 +34,7 @@ export default function NotificationsPage() {
       return;
     }
     try {
-      const result = await fetchAlerts(settings);
+      const result = await fetchAlerts(settings, 100);
       setItems(result.items || []);
       setLastUpdated(new Date());
       setError("");

@@ -35,9 +35,9 @@ const STATUS_ORDER: { key: ScanStatus; label: string }[] = [
   { key: "failed", label: "Failed" },
 ];
 
-const REFRESH_MS = 5000;
-const BASE_LIMIT = 150;
-const LOAD_MORE_STEP = 150;
+const REFRESH_MS = 7500;
+const BASE_LIMIT = 50;
+const LOAD_MORE_STEP = 50;
 // After this many back-to-back failures, treat the board as stale rather
 // than just logging a one-line error at the bottom of the rail.
 const STALE_AFTER_FAILURES = 2;
@@ -211,14 +211,6 @@ export default function Home() {
     const id = setInterval(() => refresh(settings), REFRESH_MS);
     return () => clearInterval(id);
   }, [ready, settings, refresh, authBlocked, tabVisible]);
-
-  // Refresh immediately when the tab regains focus instead of waiting for
-  // the next interval tick.
-  useEffect(() => {
-    if (!ready || authBlocked || !tabVisible) return;
-    refresh(settings);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabVisible]);
 
   // Re-run search against the live settings without waiting for the interval.
   useEffect(() => {
