@@ -14,6 +14,7 @@ const nav = [
   { href: "/workers", label: "Workers", icon: "⚙", section: "Control", permission: "system.manage" },
   { href: "/logs", label: "System logs", icon: "≡", section: "Control", permission: "logs.read" },
   { href: "/audit", label: "Audit logs", icon: "✓", section: "Control", permission: "audit.read" },
+  { href: "/gam", label: "GAM", icon: "◇", section: "Control", permission: "gam.read" },
   { href: "/system", label: "System settings", icon: "⌘", section: "Admin", permission: "system.read" },
   { href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage" },
 ];

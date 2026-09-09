@@ -479,3 +479,44 @@ export interface AlertItem { id: string; at: string; severity: "info" | "warning
 export const fetchAlerts = (s: ConnectionSettings) => request<{items:AlertItem[]; unread:number}>("/monitor/alerts", s);
 export const markAlertRead = (s: ConnectionSettings, id: string) => postJson<{ok:boolean}>(`/monitor/alerts/${encodeURIComponent(id)}/read`, s, {});
 export const markAllAlertsRead = (s: ConnectionSettings) => postJson<{ok:boolean}>("/monitor/alerts/read-all", s, {});
+
+
+export const GAM_COLUMNS = [
+  "BODY PART", "BODY MORPH", "GEN8BOD100DEPTH", "GEN8BOD100WIDTH", "GEN8BOD100CIRCU",
+  "GEN8BODWEI100DEPTH", "GEN8BODWEI100WIDTH", "GEN8BODWEI100CIRCU", "HW2BOD100DEPTH", "HW2BOD100WIDTH", "HW2BOD100CIRCU",
+  "HW2BODWEI100DEPTH", "HW2BODWEI100WIDTH", "HW2BODWEI100CIRCU", "HW3BOD100DEPTH", "HW3BOD100WIDTH", "HW3BOD100CIRCU",
+  "HW3BODWEI100DEPTH", "HW3BODWEI100WIDTH", "HW3BODWEI100CIRCU", "LevelSort",
+] as const;
+export type GAMColumn = typeof GAM_COLUMNS[number];
+export type GAMRow = Record<GAMColumn, string | number | null> & { id: string; __order?: number };
+export interface GAMListResponse { items: GAMRow[]; total: number; skip: number; limit: number; columns: string[]; }
+export interface GAMMeta { collection: string; rows: number; body_morphs: string[]; body_parts: string[]; columns: string[]; canonical_files: string[]; }
+export interface GAMImportPreview { filename: string; valid: boolean; rows: number; errors: string[]; preview: GAMRow[]; columns: string[]; }
+
+export function fetchGAM(settings: ConnectionSettings, opts: {q?:string; body_part?:string; body_morph?:string; skip?:number; limit?:number} = {}, signal?: AbortSignal) {
+  const p = new URLSearchParams(); if(opts.q)p.set("q",opts.q); if(opts.body_part)p.set("body_part",opts.body_part); if(opts.body_morph)p.set("body_morph",opts.body_morph); p.set("skip",String(opts.skip??0)); p.set("limit",String(opts.limit??100));
+  return request<GAMListResponse>(`/monitor/gam?${p.toString()}`, settings, signal);
+}
+export const fetchGAMMeta = (s: ConnectionSettings) => request<GAMMeta>("/monitor/gam/meta", s);
+export const createGAMRow = (s: ConnectionSettings, row: Record<string, unknown>) => postJson<GAMRow>("/monitor/gam", s, row);
+export const updateGAMRow = (s: ConnectionSettings, id: string, row: Record<string, unknown>) => patchJson<GAMRow>(`/monitor/gam/${encodeURIComponent(id)}`, s, row);
+export async function deleteGAMRow(settings: ConnectionSettings, id: string) {
+  if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
+  try {
+    const res = await fetch(`${settings.baseUrl.replace(/\/$/,"")}/monitor/gam/${encodeURIComponent(id)}`, { method:"DELETE", credentials:"include", headers:authHeaders(settings.apiKey ? {"X-API-Key":settings.apiKey}:{}), cache:"no-store" });
+    if(!res.ok){ let detail=`Backend returned ${res.status}`; try{const b=await res.json();if(typeof b?.detail==="string")detail=b.detail;}catch{} throw new ApiError(detail,res.status); }
+    return res.json() as Promise<{ok:boolean}>;
+  } catch(e){ if(e instanceof ApiError) throw e; throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running."); }
+}
+
+async function uploadGAM(settings: ConnectionSettings, file: File, path: string, mode?: "replace"|"upsert") {
+  if(!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
+  const qs = mode ? `?mode=${mode}` : "";
+  try {
+    const res = await fetch(`${settings.baseUrl.replace(/\/$/,"")}${path}${qs}`, { method:"POST", credentials:"include", headers:authHeaders({"Content-Type":file.type || "application/octet-stream", "X-GAM-Filename":file.name}), body:file, cache:"no-store" });
+    if(!res.ok){ let detail=`Backend returned ${res.status}`; try{const b=await res.json();if(typeof b?.detail==="string")detail=b.detail;}catch{} throw new ApiError(detail,res.status); }
+    return res.json();
+  } catch(e){ if(e instanceof ApiError) throw e; throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running."); }
+}
+export const previewGAMImport = (s: ConnectionSettings, f: File) => uploadGAM(s,f,"/monitor/gam/import/preview");
+export const importGAM = (s: ConnectionSettings, f: File, mode: "replace"|"upsert") => uploadGAM(s,f,"/monitor/gam/import",mode);
