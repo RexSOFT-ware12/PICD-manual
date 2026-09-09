@@ -68,23 +68,6 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
   return <section className={`rounded-2xl border border-line bg-white shadow-sm ${className}`}>{children}</section>;
 }
 
-function SettingNav({ active, onSelect }: { active: string; onSelect: (id: string) => void }) {
-  const items = [
-    ["general", "General Settings", "Application, connection and basic configuration", "settings"],
-    ["email", "Email Notifications", "Configure email alerts for scans and errors", "mail"],
-    ["features", "Feature Flags", "Enable or disable application capabilities", "flag"],
-    ["access", "Users & Access", "Manage users and permissions", "users"],
-    ["database", "Database", "MongoDB connection and settings", "database"],
-    ["logs", "Logs", "View system logs and activity", "logs"],
-  ] as const;
-  return <div className="rounded-2xl border border-line bg-white p-2 shadow-sm">
-    {items.map(([id, title, desc, icon]) => <button key={id} onClick={() => onSelect(id)} className={`group mb-1 flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition last:mb-0 ${active === id ? "bg-[#eaf4ff] text-blueprint" : "text-ink hover:bg-paper"}`}>
-      <span className={`mt-0.5 rounded-lg p-1.5 ${active === id ? "bg-white text-blueprint shadow-sm" : "bg-paper text-ink/55"}`}><Icon name={icon} size={18}/></span>
-      <span className="min-w-0"><span className="block text-[12px] font-semibold">{title}</span><span className={`mt-1 block text-[10px] leading-4 ${active === id ? "text-blueprint/70" : "text-ink/40"}`}>{desc}</span></span>
-    </button>)}
-  </div>;
-}
-
 function EmailSidebar({ email }: { email: EmailSettings | null }) {
   return <aside className="space-y-3">
     <Card className="p-4">
@@ -205,10 +188,20 @@ export default function SystemPage() {
 
         {error && <div className="mb-4 rounded-xl border border-brick/20 bg-brick/10 px-4 py-3 text-sm text-brick">{error}</div>}
 
-        <div className="grid grid-cols-[235px_minmax(0,1fr)] gap-4 items-start">
-          <SettingNav active={activeSection} onSelect={scrollTo} />
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white px-3 py-2 shadow-sm">
+          {[
+            ["email", "Email Notifications"],
+            ["general", "General Settings"],
+            ["features", "Feature Flags"],
+            ["access", "Users & Access"],
+            ["database", "Database"],
+            ["logs", "Logs"],
+          ].map(([id, label]) => (
+            <button key={id} onClick={() => scrollTo(id)} className={`rounded-lg px-3 py-2 text-[10px] font-semibold transition ${activeSection === id ? "bg-blueprint text-paper" : "text-ink/50 hover:bg-paper hover:text-ink"}`}>{label}</button>
+          ))}
+        </div>
 
-          <div className="min-w-0 space-y-4">
+        <div className="min-w-0 space-y-4">
             <Card className="overflow-hidden">
               <div id="system-email" className="scroll-mt-5 border-b border-line px-5 py-5">
                 <div className="flex items-start justify-between gap-5">
@@ -220,7 +213,7 @@ export default function SystemPage() {
                 </div>
               </div>
 
-              {email && <div className="grid grid-cols-[minmax(0,1fr)_225px] gap-5 px-5 py-5">
+              {email && <div className="grid grid-cols-[minmax(0,1fr)_250px] gap-6 px-5 py-5">
                 <div className="min-w-0 space-y-5">
                   <label className="flex items-center justify-between rounded-xl border border-blueprint/15 bg-[#f6faff] px-4 py-3">
                     <span><b className="text-xs">Enable email notifications</b><span className="ml-2 text-[10px] text-ink/35">Cloudflare Email Service</span></span>
@@ -277,7 +270,6 @@ export default function SystemPage() {
           </div>
         </div>
       </div>
-    </div>
     <ConfirmModal open={!!pending} title={pending?.kind.startsWith("feature:") ? "Change this feature?" : "Save runtime configuration?"} message={pending?.kind.startsWith("feature:") ? "This changes an operational capability for the live dashboard. Confirm before applying the change." : "These runtime values will apply to the running backend. Review the values before saving."} confirmLabel="Apply change" busy={busy} onConfirm={() => void confirmPending()} onCancel={() => !busy && setPending(null)} />
   </AppShell>;
 }
