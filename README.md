@@ -68,3 +68,8 @@ This means receiving a scan can never start Photoshop / Illustrator / Python / D
 - A currently processing scan may be dragged as a visual action, but the backend intentionally refuses to re-queue it while Photoshop/Illustrator/Daz work is active because that external desktop pipeline cannot be safely cancelled.
 - The board supports Today, This week, This month, and Custom date filtering.
 - `/analytics` provides daily, weekly, monthly, and status-mix analytics plus an Excel-compatible CSV export.
+
+
+## Secure dashboard login
+
+The dashboard now authenticates through the backend at `/auth/login`. Administrator sessions use HttpOnly cookies and CSRF protection; permissions are enforced by the backend, not only by hidden UI controls. Configure `NEXT_PUBLIC_API_BASE_URL` for the backend URL, or enter it under Connection settings on the login screen.

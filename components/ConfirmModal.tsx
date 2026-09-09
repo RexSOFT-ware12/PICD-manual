@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 export default function ConfirmModal({
@@ -13,6 +13,7 @@ export default function ConfirmModal({
   busy = false,
   onConfirm,
   onCancel,
+  children,
 }: {
   open: boolean;
   title: string;
@@ -23,6 +24,7 @@ export default function ConfirmModal({
   busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  children?: ReactNode;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -40,7 +42,7 @@ export default function ConfirmModal({
   if (!open || typeof document === "undefined") return null;
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-      <div className="absolute inset-0 bg-blueprint/45 backdrop-blur-[2px]" onMouseDown={() => !busy && onCancel()} />
+      <div className="absolute inset-0 bg-blueprint/45" onMouseDown={() => !busy && onCancel()} />
       <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-line bg-paper shadow-2xl animate-modal-panel">
         <div className="p-6">
           <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold ${tone === "danger" ? "bg-brick/10 text-brick" : "bg-blueprint/10 text-blueprint"}`}>
@@ -48,6 +50,7 @@ export default function ConfirmModal({
           </div>
           <h2 id="confirm-title" className="font-display text-xl font-semibold">{title}</h2>
           <p className="mt-2 text-sm leading-relaxed text-ink/55">{message}</p>
+          {children}
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-line bg-white/70 px-6 py-4">
           <button disabled={busy} onClick={onCancel} className="rounded-xl border border-line bg-white px-4 py-2.5 text-xs font-semibold text-ink/60 hover:border-ink/20 disabled:opacity-40">{cancelLabel}</button>

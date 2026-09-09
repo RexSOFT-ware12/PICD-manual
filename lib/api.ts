@@ -32,6 +32,48 @@ export interface ConnectionSettings {
   apiKey: string;
 }
 
+
+export interface AuthAdmin { username: string; is_super_admin: boolean; permissions: string[]; }
+export interface AuthMe extends AuthAdmin {}
+
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const csrf = typeof window !== "undefined" ? window.sessionStorage.getItem("picd-csrf") : null;
+  return { ...extra, ...(csrf ? { "X-CSRF-Token": csrf } : {}) };
+}
+
+export async function loginAdmin(settings: ConnectionSettings, username: string, password: string) {
+  if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
+  const res = await fetch(`${settings.baseUrl.replace(/\/$/, "")}/auth/login`, {
+    method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }), cache: "no-store",
+  });
+  if (!res.ok) {
+    let detail = `Login failed (${res.status})`;
+    try { const b = await res.json(); if (typeof b?.detail === "string") detail = b.detail; } catch {}
+    throw new ApiError(detail, res.status);
+  }
+  const data = await res.json() as { admin: AuthAdmin; expires_at: string; csrf_token: string };
+  if (typeof window !== "undefined") window.sessionStorage.setItem("picd-csrf", data.csrf_token);
+  return data;
+}
+
+export async function fetchCurrentAdmin(settings: ConnectionSettings) {
+  return request<AuthMe>("/auth/me", settings);
+}
+
+export async function logoutAdmin(settings: ConnectionSettings) {
+  if (!settings.baseUrl) return;
+  const res = await fetch(`${settings.baseUrl.replace(/\/$/, "")}/auth/logout`, { method: "POST", credentials: "include", headers: authHeaders(), cache: "no-store" });
+  if (!res.ok) { let detail = `Logout failed (${res.status})`; try { const b = await res.json(); if (typeof b?.detail === "string") detail = b.detail; } catch {} throw new ApiError(detail, res.status); }
+  if (typeof window !== "undefined") window.sessionStorage.removeItem("picd-csrf");
+}
+
+export interface AdminRecord extends AuthAdmin { id: string; active: boolean; created_at: string | null; last_login_at: string | null; }
+export interface AdminsResponse { items: AdminRecord[]; permissions: { key: string; label: string }[]; }
+export function fetchAdmins(settings: ConnectionSettings) { return request<AdminsResponse>("/auth/admins", settings); }
+export function createAdmin(settings: ConnectionSettings, body: { username: string; password: string; permissions: string[] }) { return postJson<AdminRecord>("/auth/admins", settings, body); }
+export function updateAdmin(settings: ConnectionSettings, id: string, body: { active?: boolean; permissions?: string[]; password?: string }) { return patchJson<AdminRecord>(`/auth/admins/${encodeURIComponent(id)}`, settings, body); }
+
 const SETTINGS_KEY = "picd-monitor-settings";
 
 export function loadSettings(): ConnectionSettings {
@@ -49,7 +91,7 @@ export function loadSettings(): ConnectionSettings {
     const parsed = JSON.parse(raw) as ConnectionSettings;
     return {
       baseUrl: parsed.baseUrl || process.env.NEXT_PUBLIC_API_BASE_URL || "",
-      apiKey: parsed.apiKey || "",
+      apiKey: "",
     };
   } catch {
     return { baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? "", apiKey: "" };
@@ -81,7 +123,8 @@ async function request<T>(
   let res: Response;
   try {
     res = await fetch(url, {
-      headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined,
+      headers: authHeaders(settings.apiKey ? { "X-API-Key": settings.apiKey } : {}),
+      credentials: "include",
       cache: "no-store",
       signal,
     });
@@ -97,7 +140,7 @@ async function request<T>(
   }
   if (!res.ok) {
     if (res.status === 401) {
-      throw new ApiError("Rejected — check the API key.", 401);
+      throw new ApiError("Authentication required or session expired.", 401);
     }
     throw new ApiError(`Backend returned ${res.status}`, res.status);
   }
@@ -148,7 +191,8 @@ export async function retryScan(
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined,
+      headers: authHeaders(settings.apiKey ? { "X-API-Key": settings.apiKey } : {}),
+      credentials: "include",
       signal,
     });
   } catch (e) {
@@ -161,7 +205,7 @@ export async function retryScan(
   }
   if (!res.ok) {
     if (res.status === 401) {
-      throw new ApiError("Rejected — check the API key.", 401);
+      throw new ApiError("Authentication required or session expired.", 401);
     }
     // The retry endpoint returns a useful {detail} on 404/409/422 —
     // surface that instead of just the status code where we can.
@@ -197,7 +241,8 @@ export async function triggerNextScan(
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined,
+      headers: authHeaders(settings.apiKey ? { "X-API-Key": settings.apiKey } : {}),
+      credentials: "include",
       cache: "no-store",
     });
   } catch {
@@ -233,7 +278,8 @@ export async function processSelectedScan(
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined,
+      headers: authHeaders(settings.apiKey ? { "X-API-Key": settings.apiKey } : {}),
+      credentials: "include",
       cache: "no-store",
       signal,
     });
@@ -268,7 +314,8 @@ export async function moveScanToQueue(
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined,
+      headers: authHeaders(settings.apiKey ? { "X-API-Key": settings.apiKey } : {}),
+      credentials: "include",
       cache: "no-store",
       signal,
     });
@@ -333,7 +380,8 @@ export async function deleteScan(settings: ConnectionSettings, scanId: string, s
   try {
     const res = await fetch(url, {
       method: "DELETE",
-      headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined,
+      headers: authHeaders(settings.apiKey ? { "X-API-Key": settings.apiKey } : {}),
+      credentials: "include",
       cache: "no-store",
       signal,
     });
@@ -377,11 +425,20 @@ export interface SystemRow { at: string; level?: string; action: string; detail:
 async function postJson<T>(path: string, settings: ConnectionSettings, body: unknown): Promise<T> {
   if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
   try {
-    const res = await fetch(`${settings.baseUrl.replace(/\/$/, "")}${path}`, { method:"POST", headers:{"Content-Type":"application/json", ...(settings.apiKey ? {"X-API-Key":settings.apiKey}: {})}, body:JSON.stringify(body), cache:"no-store" });
+    const res = await fetch(`${settings.baseUrl.replace(/\/$/, "")}${path}`, { method:"POST", headers:{"Content-Type":"application/json", ...authHeaders(settings.apiKey ? {"X-API-Key":settings.apiKey}: {})}, credentials:"include", body:JSON.stringify(body), cache:"no-store" });
     if (!res.ok) { let detail=`Backend returned ${res.status}`; try { const b=await res.json(); if(typeof b?.detail === "string") detail=b.detail; } catch {} throw new ApiError(detail,res.status); }
     return res.json();
   } catch(e) { if(e instanceof ApiError) throw e; throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running."); }
 }
+async function patchJson<T>(path: string, settings: ConnectionSettings, body: unknown): Promise<T> {
+  if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
+  try {
+    const res = await fetch(`${settings.baseUrl.replace(/\/$/, "")}${path}`, { method: "PATCH", headers: { "Content-Type": "application/json", ...authHeaders(settings.apiKey ? { "X-API-Key": settings.apiKey } : {}) }, credentials: "include", body: JSON.stringify(body), cache: "no-store" });
+    if (!res.ok) { let detail = `Backend returned ${res.status}`; try { const b = await res.json(); if (typeof b?.detail === "string") detail = b.detail; } catch {} throw new ApiError(detail, res.status); }
+    return res.json();
+  } catch (e) { if (e instanceof ApiError) throw e; throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running."); }
+}
+
 export const fetchSystemState = (s: ConnectionSettings) => request<SystemState>("/monitor/system/state", s);
 export const fetchHealth = (s: ConnectionSettings) => request<HealthResponse>("/monitor/system/health", s);
 export const fetchAudit = (s: ConnectionSettings) => request<{items:SystemRow[]}>("/monitor/system/audit", s);
