@@ -51,7 +51,7 @@ export interface ConnectionSettings {
 
 
 export interface AuthAdmin { username: string; is_super_admin: boolean; permissions: string[]; }
-export interface AuthMe extends AuthAdmin {}
+export interface AuthMe extends AuthAdmin { csrf_token?: string; }
 
 function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const csrf = typeof window !== "undefined" ? window.sessionStorage.getItem("picd-csrf") : null;
@@ -75,7 +75,18 @@ export async function loginAdmin(settings: ConnectionSettings, username: string,
 }
 
 export async function fetchCurrentAdmin(settings: ConnectionSettings) {
-  return request<AuthMe>("/auth/me", settings);
+  const me = await request<AuthMe>("/auth/me", settings);
+  // Keep the CSRF token in sync with the authenticated HttpOnly session.
+  try {
+    const csrf = await request<{ csrf_token: string }>("/auth/csrf", settings);
+    if (typeof window !== "undefined" && csrf?.csrf_token) window.sessionStorage.setItem("picd-csrf", csrf.csrf_token);
+  } catch {}
+  return me;
+}
+
+async function refreshCSRF(settings: ConnectionSettings): Promise<void> {
+  const csrf = await request<{ csrf_token: string }>("/auth/csrf", settings);
+  if (typeof window !== "undefined" && csrf?.csrf_token) window.sessionStorage.setItem("picd-csrf", csrf.csrf_token);
 }
 
 export async function logoutAdmin(settings: ConnectionSettings) {
@@ -449,7 +460,17 @@ async function postJson<T>(path: string, settings: ConnectionSettings, body: unk
   if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
   try {
     const res = await fetch(`${settings.baseUrl.replace(/\/$/, "")}${path}`, { method:"POST", headers:{"Content-Type":"application/json", ...authHeaders(settings.apiKey ? {"X-API-Key":settings.apiKey}: {})}, credentials:"include", body:JSON.stringify(body), cache:"no-store" });
-    if (!res.ok) { let detail=`Backend returned ${res.status}`; try { const b=await res.json(); if(typeof b?.detail === "string") detail=b.detail; } catch {} throw new ApiError(detail,res.status); }
+    if (!res.ok) {
+      let detail=`Backend returned ${res.status}`;
+      try { const b=await res.json(); if(typeof b?.detail === "string") detail=b.detail; } catch {}
+      if (res.status === 403 && detail === "CSRF validation failed") {
+        await refreshCSRF(settings);
+        const retry = await fetch(`${settings.baseUrl.replace(/\/$/, "")}${path}`, { method:"POST", headers:{"Content-Type":"application/json", ...authHeaders(settings.apiKey ? {"X-API-Key":settings.apiKey}: {})}, credentials:"include", body:JSON.stringify(body), cache:"no-store" });
+        if (!retry.ok) { let retryDetail=`Backend returned ${retry.status}`; try { const b=await retry.json(); if(typeof b?.detail === "string") retryDetail=b.detail; } catch {} throw new ApiError(retryDetail,retry.status); }
+        return retry.json();
+      }
+      throw new ApiError(detail,res.status);
+    }
     return res.json();
   } catch(e) { if(e instanceof ApiError) throw e; throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running."); }
 }
