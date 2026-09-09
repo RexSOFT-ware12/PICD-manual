@@ -2,11 +2,11 @@
   "/_not-found/page": "app/_not-found/page.js",
   "/admins/page": "app/admins/page.js",
   "/analytics/page": "app/analytics/page.js",
-  "/logs/page": "app/logs/page.js",
-  "/page": "app/page.js",
-  "/login/page": "app/login/page.js",
-  "/notifications/page": "app/notifications/page.js",
   "/audit/page": "app/audit/page.js",
+  "/login/page": "app/login/page.js",
+  "/logs/page": "app/logs/page.js",
+  "/notifications/page": "app/notifications/page.js",
+  "/page": "app/page.js",
   "/workers/page": "app/workers/page.js",
   "/system/page": "app/system/page.js"
 }

@@ -11,6 +11,16 @@ export interface ScanSummary {
   front_image_url: string | null;
   side_image_url: string | null;
   daz_template: string | null;
+  client_input: {
+    height?: number | null;
+    weight?: number | null;
+    age?: number | null;
+    bust?: number | null;
+    chest?: number | null;
+    waist?: number | null;
+    hips?: number | null;
+    bra_cup_size?: string | null;
+  } | null;
 }
 
 export interface ScanListResponse {

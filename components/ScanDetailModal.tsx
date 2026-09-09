@@ -60,6 +60,34 @@ function DetailImage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+function ClientMeasurements({ input }: { input: NonNullable<ScanSummary["client_input"]> }) {
+  const rows: Array<[string, string | number | null | undefined]> = [
+    ["Height", input.height != null ? `${input.height} cm` : null],
+    ["Weight", input.weight != null ? `${input.weight} kg` : null],
+    ["Age", input.age],
+    ["Bust", input.bust != null ? `${input.bust} cm` : null],
+    ["Chest", input.chest != null ? `${input.chest} cm` : null],
+    ["Waist", input.waist != null ? `${input.waist} cm` : null],
+    ["Hips", input.hips != null ? `${input.hips} cm` : null],
+    ["Bra cup", input.bra_cup_size],
+  ];
+  const visible = rows.filter(([, value]) => value !== null && value !== undefined && value !== "");
+  if (!visible.length) return null;
+  return (
+    <section className="mt-4 rounded-xl border border-line bg-white/55 p-4">
+      <div className="mb-3">
+        <p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">Client input</p>
+        <p className="mt-0.5 text-xs text-ink/45">Measurements supplied for this client and used for processing review.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-x-5 gap-y-1 divide-y divide-line/70">
+        {visible.map(([label, value]) => (
+          <Row key={label} label={label} value={String(value)} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4 py-1.5 text-sm">
@@ -168,7 +196,7 @@ export default function ScanDetailModal({
         )}
 
         <div className="divide-y divide-line">
-          <Row label="User" value={scan.user_id ?? "unknown"} />
+          <Row label="Client" value={scan.user_id ?? "unknown"} />
           <Row label="Gender" value={scan.gender ?? "—"} />
           <Row label="Created" value={formatDate(scan.created_at)} />
           <Row label="Updated" value={formatDate(scan.updated_at)} />
@@ -176,6 +204,8 @@ export default function ScanDetailModal({
             <Row label="Daz template" value={scan.daz_template} />
           )}
         </div>
+
+        {scan.client_input && <ClientMeasurements input={scan.client_input} />}
 
         {scan.status === "failed" && scan.error && (
           <div className="mt-3 rounded bg-brick/10 px-3 py-2 text-[12px] text-brick">

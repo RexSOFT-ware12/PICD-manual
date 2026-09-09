@@ -109,6 +109,21 @@ export default function ScanCard({ scan, style, onRetried, onMoved, draggable = 
       </div>
       {(scan.front_image_url || scan.side_image_url) && <div className={`${compact ? "mb-1.5" : "mb-2"} flex gap-1.5`}>{scan.front_image_url && <Thumb src={scan.front_image_url} alt="front" />}{scan.side_image_url && <Thumb src={scan.side_image_url} alt="side" />}</div>}
       <div className="flex items-center justify-between gap-2 text-xs"><span className="truncate text-ink/70">{scan.user_id ?? "unknown user"}</span>{scan.gender && <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/50">{scan.gender}</span>}</div>
+      {scan.client_input && (
+        <div className="mt-2 rounded-md border border-line/70 bg-ink/[0.025] px-2 py-1.5">
+          <p className="mb-1 text-[9px] font-medium uppercase tracking-[.12em] text-ink/35">Client measurements</p>
+          <div className="flex flex-wrap gap-x-2.5 gap-y-1 font-mono text-[10px] leading-tight text-ink/65">
+            {scan.client_input.height != null && <span>H {scan.client_input.height} cm</span>}
+            {scan.client_input.weight != null && <span>W {scan.client_input.weight} kg</span>}
+            {scan.client_input.age != null && <span>Age {scan.client_input.age}</span>}
+            {scan.client_input.bust != null && <span>Bust {scan.client_input.bust} cm</span>}
+            {scan.client_input.chest != null && <span>Chest {scan.client_input.chest} cm</span>}
+            {scan.client_input.waist != null && <span>Waist {scan.client_input.waist} cm</span>}
+            {scan.client_input.hips != null && <span>Hips {scan.client_input.hips} cm</span>}
+            {scan.client_input.bra_cup_size && <span>Cup {scan.client_input.bra_cup_size}</span>}
+          </div>
+        </div>
+      )}
       {scan.status === "failed" && scan.error && <p className="mt-2 line-clamp-2 break-words rounded bg-brick/10 px-2 py-1 text-[11px] text-brick">{scan.error}</p>}
       {scan.status === "completed" && scan.daz_template && <p className="mt-2 truncate font-mono text-[10px] text-sage">{scan.daz_template}</p>}
       {draggable && <p className="mt-1.5 text-[9px] uppercase tracking-[.14em] text-ink/25">{scan.status === "queued" ? "drag to arrange or process" : "drag to queue"}</p>}
