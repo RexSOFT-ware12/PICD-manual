@@ -369,3 +369,24 @@ export async function reorderScan(settings: ConnectionSettings, scanId: string, 
     throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running.");
   }
 }
+
+export interface SystemState { paused: boolean; maintenance: boolean; features: Record<string, boolean>; config: Record<string, number>; uptime_seconds: number; }
+export interface HealthResponse { status: string; uptime_seconds: number; queue_depth: number; processing: boolean; mongo_configured: boolean; platform: string; python: string; tools: Record<string, boolean>; }
+export interface SystemRow { at: string; level?: string; action: string; detail: string; }
+
+async function postJson<T>(path: string, settings: ConnectionSettings, body: unknown): Promise<T> {
+  if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
+  try {
+    const res = await fetch(`${settings.baseUrl.replace(/\/$/, "")}${path}`, { method:"POST", headers:{"Content-Type":"application/json", ...(settings.apiKey ? {"X-API-Key":settings.apiKey}: {})}, body:JSON.stringify(body), cache:"no-store" });
+    if (!res.ok) { let detail=`Backend returned ${res.status}`; try { const b=await res.json(); if(typeof b?.detail === "string") detail=b.detail; } catch {} throw new ApiError(detail,res.status); }
+    return res.json();
+  } catch(e) { if(e instanceof ApiError) throw e; throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running."); }
+}
+export const fetchSystemState = (s: ConnectionSettings) => request<SystemState>("/monitor/system/state", s);
+export const fetchHealth = (s: ConnectionSettings) => request<HealthResponse>("/monitor/system/health", s);
+export const fetchAudit = (s: ConnectionSettings) => request<{items:SystemRow[]}>("/monitor/system/audit", s);
+export const fetchLogs = (s: ConnectionSettings, level="all") => request<{items:SystemRow[]}>(`/monitor/system/logs?level=${encodeURIComponent(level)}`, s);
+export const updateSystemControl = (s: ConnectionSettings, body: {paused?:boolean;maintenance?:boolean}) => postJson<SystemState>("/monitor/system/control",s,body);
+export const updateFeatures = (s: ConnectionSettings, body: Record<string,boolean>) => postJson<SystemState>("/monitor/system/features",s,body);
+export const updateSystemConfig = (s: ConnectionSettings, body: Record<string,number>) => postJson<SystemState>("/monitor/system/config",s,body);
+export const runDiagnostics = (s: ConnectionSettings) => postJson<{checks:{name:string;ok:boolean}[];ran_at:string}>("/monitor/system/diagnostics",s,{});

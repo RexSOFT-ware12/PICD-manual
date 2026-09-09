@@ -426,6 +426,7 @@ export default function Home() {
             <p className="mt-1 text-[11px] text-ink/35">Drag a queued card to Processing to run that scan. Drag failed/processing cards back to Queue. Completed scans are locked.</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <a href="/system" className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] font-medium text-ink/60 transition hover:-translate-y-0.5 hover:border-blueprint hover:text-blueprint sm:inline-flex">System ↗</a>
             <a href="/analytics" className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] font-medium text-ink/60 transition hover:-translate-y-0.5 hover:border-blueprint hover:text-blueprint sm:inline-flex">Analytics ↗</a>
             <button onClick={() => setCompact(v => !v)} className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] text-ink/55 transition hover:border-blueprint hover:text-blueprint sm:inline-flex">{compact ? "Comfortable" : "Compact"}</button>
             <div className="relative">
