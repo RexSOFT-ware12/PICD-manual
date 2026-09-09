@@ -152,7 +152,6 @@ export default function SystemPage() {
   const saveEmail = async () => {
     if (!email) return;
     const recipients = email.recipients.map(x => x.trim()).filter(Boolean);
-    if (recipients.length === 0) { setEmailMessage("Add at least one recipient email address."); return; }
     setEmailBusy(true); setEmailMessage(null);
     try { setEmail(await saveEmailSettings(loadSettings(), { ...email, recipients })); setEmailMessage("Email settings saved."); }
     catch (e) { setEmailMessage(e instanceof ApiError ? e.message : "Could not save email settings."); }
@@ -167,6 +166,26 @@ export default function SystemPage() {
   };
 
   const addRecipient = () => setEmail(email ? { ...email, recipients: [...email.recipients, ""] } : email);
+
+  const removeRecipient = async (index: number) => {
+    if (!email || emailBusy) return;
+    const previous = email;
+    const next = { ...email, recipients: email.recipients.filter((_, j) => j !== index) };
+    setEmail(next);
+    setEmailBusy(true);
+    setEmailMessage(null);
+    try {
+      const recipients = next.recipients.map(x => x.trim()).filter(Boolean);
+      const saved = await saveEmailSettings(loadSettings(), { ...next, recipients });
+      setEmail(saved);
+      setEmailMessage("Recipient removed and saved.");
+    } catch (e) {
+      setEmail(previous);
+      setEmailMessage(e instanceof ApiError ? e.message : "Could not remove recipient.");
+    } finally {
+      setEmailBusy(false);
+    }
+  };
   const connectionStatus: ConnectionStatus = health?.status === "ok" ? "ok" : settings.baseUrl ? "error" : "disconnected";
   const save = (s: ConnectionSettings) => { saveSettings(s); setSettings(s); load(); };
 
@@ -233,7 +252,7 @@ export default function SystemPage() {
                         {email.recipients.map((r, i) => <div key={`${i}-${r}`} className="group flex items-center gap-2 border-b border-line/70 px-2 py-1.5 last:border-0">
                           <span className="cursor-grab px-1 text-ink/20">⋮⋮</span>
                           <input type="email" value={r} onChange={e => { const a = [...email.recipients]; a[i] = e.target.value; setEmail({ ...email, recipients: a }); }} placeholder="name@example.com" className="min-w-0 flex-1 bg-transparent px-1 py-2 text-xs outline-none" />
-                          <button aria-label={`Remove recipient ${i + 1}`} onClick={() => setEmail({ ...email, recipients: email.recipients.filter((_, j) => j !== i) })} className="rounded-lg px-2 py-1.5 text-[10px] font-semibold text-ink/30 opacity-60 transition hover:bg-brick/10 hover:text-brick hover:opacity-100">Remove</button>
+                          <button aria-label={`Remove recipient ${i + 1}`} onClick={() => removeRecipient(i)} disabled={emailBusy} className="rounded-lg px-2 py-1.5 text-[10px] font-semibold text-ink/30 opacity-60 transition hover:bg-brick/10 hover:text-brick hover:opacity-100">Remove</button>
                         </div>)}
                         {email.recipients.length === 0 && <div className="px-3 py-5 text-center text-[10px] text-ink/35">No recipients configured. Add an email address above.</div>}
                       </div>
