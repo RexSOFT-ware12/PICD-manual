@@ -28,6 +28,11 @@ export default function Column({
   deletingScan,
   onDelete,
   compact = false,
+  selectable = false,
+  selectedIds,
+  onToggleSelect,
+  stuckIds,
+  onForceFail,
 }: {
   status: ScanStatus;
   label: string;
@@ -41,6 +46,11 @@ export default function Column({
   deletingScan?: string | null;
   onDelete?: (scanId: string) => void;
   compact?: boolean;
+  selectable?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (scanId: string) => void;
+  stuckIds?: Set<string>;
+  onForceFail?: (scanId: string) => void;
 }) {
   const animatedCount = useAnimatedNumber(count);
 
@@ -85,6 +95,11 @@ export default function Column({
             onDelete={onDelete}
             onDropBefore={onDropBefore}
             compact={compact}
+            selectable={selectable}
+            selected={selectedIds?.has(scan.scan_id) ?? false}
+            onToggleSelect={onToggleSelect}
+            stuck={stuckIds?.has(scan.scan_id) ?? false}
+            onForceFail={onForceFail}
             style={{ animationDelay: `${Math.min(i * STAGGER_STEP_MS, MAX_STAGGER_MS)}ms` }}
           />
         ))}
