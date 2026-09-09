@@ -24,6 +24,7 @@ import ConnectionSettingsPanel, {
 } from "@/components/ConnectionSettings";
 import Column from "@/components/Column";
 import AppShell from "@/components/AppShell";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const STATUS_ORDER: { key: ScanStatus; label: string }[] = [
   { key: "queued", label: "Queued" },
@@ -87,6 +88,7 @@ export default function Home() {
   const [compact, setCompact] = useState(false);
   const [showOnlyActive, setShowOnlyActive] = useState(false);
   const [deletingScan, setDeletingScan] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{scanId:string}|null>(null);
 
   const searchRef = useRef(search);
   searchRef.current = search;
@@ -292,7 +294,13 @@ export default function Home() {
   const handleDelete = async (scanId: string) => {
     const scan = scans.find((s) => s.scan_id === scanId);
     if (!scan || scan.status === "completed" || deletingScan) return;
-    if (!window.confirm(`Delete scan ${scanId.slice(0, 8)}…? This cannot be undone.`)) return;
+    setConfirmDelete({scanId});
+  };
+
+  const confirmDeleteScan = async () => {
+    if (!confirmDelete) return;
+    const scanId = confirmDelete.scanId;
+    setConfirmDelete(null);
     setDeletingScan(scanId);
     setTriggerMessage(null);
     try {
@@ -449,6 +457,7 @@ export default function Home() {
         )}
       </section>
 
+      <ConfirmModal open={!!confirmDelete} tone="danger" title="Delete this scan?" message={confirmDelete ? `Scan ${confirmDelete.scanId.slice(0, 8)}… will be permanently removed. Completed scans are protected.` : ""} confirmLabel="Delete scan" busy={!!deletingScan} onConfirm={confirmDeleteScan} onCancel={() => !deletingScan && setConfirmDelete(null)} />
     </AppShell>
   );
 }

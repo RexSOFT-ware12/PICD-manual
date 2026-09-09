@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { ApiError, isAbortError, loadSettings, retryScan, type ScanSummary } from "@/lib/api";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const statusLabel: Record<string, string> = {
   queued: "Queued",
@@ -91,6 +92,7 @@ export default function ScanDetailModal({
     return () => setMounted(false);
   }, []);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [confirmRetry, setConfirmRetry] = useState(false);
 
   // Esc to close, and lock background scroll while open.
   useEffect(() => {
@@ -107,6 +109,7 @@ export default function ScanDetailModal({
   }, [onClose]);
 
   const handleRetry = async () => {
+    setConfirmRetry(false);
     setRetryState("retrying");
     setRetryError(null);
     try {
@@ -189,7 +192,7 @@ export default function ScanDetailModal({
               </p>
             ) : (
               <button
-                onClick={handleRetry}
+                onClick={() => setConfirmRetry(true)}
                 disabled={retryState === "retrying"}
                 className="w-full rounded-md bg-blueprint px-3 py-2 text-[13px] font-medium text-paper transition hover:bg-blueprint/90 disabled:cursor-wait disabled:opacity-60"
               >
@@ -204,6 +207,7 @@ export default function ScanDetailModal({
           </div>
         )}
       </div>
+      <ConfirmModal open={confirmRetry} title="Retry this scan?" message={`Scan ${scan.scan_id.slice(0, 12)}… will be placed back into the manual queue. It will not start automatically.`} confirmLabel="Retry scan" onConfirm={handleRetry} onCancel={() => setConfirmRetry(false)} />
     </div>,
     document.body
   );

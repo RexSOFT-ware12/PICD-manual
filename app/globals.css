@@ -130,3 +130,18 @@ button:focus-visible, input:focus-visible, [role="button"]:focus-visible {
     color: rgba(27,36,48,.55);
   }
 }
+
+@keyframes modalPanelIn { from { opacity: 0; transform: translate3d(0, 8px, 0) scale(.985); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+@keyframes modalBackdropIn { from { opacity: 0; } to { opacity: 1; } }
+.animate-modal-panel { animation: modalPanelIn 160ms cubic-bezier(.2,.8,.2,1) both; }
+.animate-modal-backdrop { animation: modalBackdropIn 120ms ease-out both; }
+
+
+@keyframes notificationRing {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  15% { transform: rotate(12deg) scale(1.04); }
+  30% { transform: rotate(-12deg) scale(1.04); }
+  45% { transform: rotate(9deg) scale(1.02); }
+  60% { transform: rotate(-7deg) scale(1.01); }
+}
+.notification-ring { animation: notificationRing 0.8s ease-in-out 1; }

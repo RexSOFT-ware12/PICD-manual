@@ -390,3 +390,8 @@ export const updateSystemControl = (s: ConnectionSettings, body: {paused?:boolea
 export const updateFeatures = (s: ConnectionSettings, body: Record<string,boolean>) => postJson<SystemState>("/monitor/system/features",s,body);
 export const updateSystemConfig = (s: ConnectionSettings, body: Record<string,number>) => postJson<SystemState>("/monitor/system/config",s,body);
 export const runDiagnostics = (s: ConnectionSettings) => postJson<{checks:{name:string;ok:boolean}[];ran_at:string}>("/monitor/system/diagnostics",s,{});
+
+export interface AlertItem { id: string; at: string; severity: "info" | "warning" | "critical" | "success"; title: string; message: string; source: string; read: boolean; }
+export const fetchAlerts = (s: ConnectionSettings) => request<{items:AlertItem[]; unread:number}>("/monitor/alerts", s);
+export const markAlertRead = (s: ConnectionSettings, id: string) => postJson<{ok:boolean}>(`/monitor/alerts/${encodeURIComponent(id)}/read`, s, {});
+export const markAllAlertsRead = (s: ConnectionSettings) => postJson<{ok:boolean}>("/monitor/alerts/read-all", s, {});

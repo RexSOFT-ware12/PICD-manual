@@ -4,10 +4,12 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { loadSettings } from "@/lib/api";
+import NotificationCenter from "@/components/NotificationCenter";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: "▦", section: "Monitor" },
   { href: "/analytics", label: "Analytics", icon: "◒", section: "Monitor" },
+  { href: "/notifications", label: "Notifications", icon: "♢", section: "Monitor" },
   { href: "/workers", label: "Workers", icon: "⚙", section: "Control" },
   { href: "/logs", label: "System logs", icon: "≡", section: "Control" },
   { href: "/audit", label: "Audit logs", icon: "✓", section: "Control" },
@@ -34,6 +36,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <p className="font-display text-lg font-semibold leading-tight">Scan Queue<br />Monitor</p>
             <p className="mt-1 text-xs text-paper/45">PICD measurement pipeline</p>
           </Link>
+
+          <div className="mb-3 flex items-center justify-between gap-2 px-1"><span className="text-[9px] font-bold uppercase tracking-[.18em] text-paper/25">Live center</span><NotificationCenter /></div>
 
           <div className="mb-5 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
             <div className="flex items-center gap-2">
