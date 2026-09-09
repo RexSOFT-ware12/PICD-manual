@@ -108,7 +108,7 @@ export default function NotificationsPage() {
             </div>
           </div>
 
-          {loading ? <div className="px-5 py-16 text-center text-xs text-ink/35">Loading alert stream…</div> : filtered.length === 0 ? <div className="px-5 py-20 text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-sage/10 text-sage text-xl">✓</div><h3 className="mt-4 font-display text-base font-semibold">Nothing needs attention</h3><p className="mt-1 text-xs text-ink/35">There are no notifications matching this filter.</p></div> : <div className="divide-y divide-line">
+          {loading ? <div className="space-y-2 p-4">{Array.from({length:7}).map((_,i)=><div key={i} className="h-20 animate-pulse rounded-xl bg-ink/[.035]" />)}</div> : filtered.length === 0 ? <div className="px-5 py-20 text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-sage/10 text-sage text-xl">✓</div><h3 className="mt-4 font-display text-base font-semibold">Nothing needs attention</h3><p className="mt-1 text-xs text-ink/35">There are no notifications matching this filter.</p></div> : <div className="divide-y divide-line">
             {filtered.map(a => {
               const meta = severityMeta[a.severity];
               return <div key={a.id} className={`flex items-start gap-4 px-5 py-4 transition hover:bg-ink/[.015] ${!a.read ? "bg-blueprint/[.018]" : ""}`}>

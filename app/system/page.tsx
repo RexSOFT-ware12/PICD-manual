@@ -109,6 +109,7 @@ export default function SystemPage() {
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ kind: string; key?: string; value?: boolean } | null>(null);
   const [activeSection, setActiveSection] = useState("email");
+  const loading = !!settings.baseUrl && (!state || !health || !email);
 
   useEffect(() => setSettings(loadSettings()), []);
 
@@ -201,7 +202,7 @@ export default function SystemPage() {
           ))}
         </div>
 
-        <div className="min-w-0 space-y-4">
+        {loading ? <div className="space-y-4">{Array.from({length:4}).map((_,i)=><div key={i} className="animate-pulse rounded-2xl border border-line bg-white p-6"><div className="h-5 w-48 rounded bg-ink/[.06]"/><div className="mt-3 h-3 w-80 rounded bg-ink/[.04]"/><div className="mt-6 grid grid-cols-2 gap-3"><div className="h-10 rounded-lg bg-ink/[.035]"/><div className="h-10 rounded-lg bg-ink/[.035]"/></div><div className="mt-4 h-20 rounded-xl bg-ink/[.035]"/></div>)}</div> : <div className="min-w-0 space-y-4">
             <Card className="overflow-hidden">
               <div id="system-email" className="scroll-mt-5 border-b border-line px-5 py-5">
                 <div className="flex items-start justify-between gap-5">
@@ -267,7 +268,7 @@ export default function SystemPage() {
             <Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="font-display font-semibold">Runtime configuration</h2><p className="mt-1 text-xs text-ink/40">Safe runtime settings. Secrets and source code remain protected.</p></div><button onClick={() => setPending({ kind: "config" })} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper">Save</button></div><div className="mt-4 grid grid-cols-2 gap-3">{state && Object.entries(state.config).map(([k, v]) => <label key={k} className="text-xs text-ink/55">{configLabels[k] ?? k}<input type="number" min="0" value={v} onChange={e => setState({ ...state, config: { ...state.config, [k]: Number(e.target.value) } })} className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2 font-mono text-xs outline-none focus:border-blueprint"/></label>)}</div></Card>
 
             <p className="pb-5 text-[10px] text-ink/30">Platform: {health?.platform ?? "—"} · Python: {health?.python ?? "—"} · Mongo configured: {health?.mongo_configured ? "yes" : "no"}</p>
-          </div>
+          </div>}
         </div>
       </div>
     <ConfirmModal open={!!pending} title={pending?.kind.startsWith("feature:") ? "Change this feature?" : "Save runtime configuration?"} message={pending?.kind.startsWith("feature:") ? "This changes an operational capability for the live dashboard. Confirm before applying the change." : "These runtime values will apply to the running backend. Review the values before saving."} confirmLabel="Apply change" busy={busy} onConfirm={() => void confirmPending()} onCancel={() => !busy && setPending(null)} />
