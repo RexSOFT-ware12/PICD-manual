@@ -11,6 +11,9 @@ export interface ScanSummary {
   front_image_url: string | null;
   side_image_url: string | null;
   daz_template: string | null;
+  processing_started_at?: string | null;
+  completed_at?: string | null;
+  failed_at?: string | null;
   client_input: {
     height?: number | null;
     weight?: number | null;
@@ -35,6 +38,10 @@ export interface StatsResponse {
   total: number;
   queue_depth: number;
   processing: boolean;
+  avg_processing_seconds?: number | null;
+  avg_wait_seconds?: number | null;
+  completed_today?: number;
+  failed_today?: number;
 }
 
 export interface ConnectionSettings {

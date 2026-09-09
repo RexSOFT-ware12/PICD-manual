@@ -1,12 +1,12 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/analytics/page": "app/analytics/page.js",
   "/admins/page": "app/admins/page.js",
+  "/analytics/page": "app/analytics/page.js",
   "/audit/page": "app/audit/page.js",
   "/login/page": "app/login/page.js",
-  "/notifications/page": "app/notifications/page.js",
   "/logs/page": "app/logs/page.js",
-  "/page": "app/page.js",
+  "/notifications/page": "app/notifications/page.js",
   "/workers/page": "app/workers/page.js",
-  "/system/page": "app/system/page.js"
+  "/system/page": "app/system/page.js",
+  "/page": "app/page.js"
 }

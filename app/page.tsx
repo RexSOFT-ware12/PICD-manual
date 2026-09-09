@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import {
   fetchScans,
   fetchStats,
+  fetchHealth,
   triggerNextScan,
   processSelectedScan,
   moveScanToQueue,
@@ -16,6 +17,7 @@ import {
   type ScanStatus,
   type ScanSummary,
   type StatsResponse,
+  type HealthResponse,
   type ConnectionSettings as Settings,
 } from "@/lib/api";
 import { useAnimatedNumber } from "@/lib/useAnimatedNumber";
@@ -65,6 +67,7 @@ export default function Home() {
   const [settings, setSettings] = useState<Settings>({ baseUrl: "", apiKey: "" });
   const [ready, setReady] = useState(false);
   const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
   const [scans, setScans] = useState<ScanSummary[]>([]);
   const [scansTotal, setScansTotal] = useState<number | null>(null);
   const [limit, setLimit] = useState(BASE_LIMIT);
@@ -142,13 +145,14 @@ export default function Home() {
     const requestId = ++requestIdRef.current;
 
     try {
-      const [statsRes, scansRes] = await Promise.all([
+      const [statsRes, scansRes, healthRes] = await Promise.all([
         fetchStats(s, controller.signal),
         fetchScans(
           s,
           { limit: limitRef.current, q: searchRef.current || undefined, ...dateRange() },
           controller.signal
         ),
+        fetchHealth(s),
       ]);
 
       // A newer request may have started (and even resolved) while this
@@ -156,6 +160,7 @@ export default function Home() {
       if (requestId !== requestIdRef.current) return;
 
       setStats(statsRes);
+      setHealth(healthRes);
       setScans(scansRes.scans);
       setScansTotal(scansRes.total);
       setError(null);
@@ -363,6 +368,22 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {settings.baseUrl && (
+          <div className="mb-3 grid grid-cols-6 gap-2">
+            <div className="col-span-2 rounded-xl border border-line bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div><p className="text-[9px] font-bold uppercase tracking-[.16em] text-ink/30">System health</p><p className="mt-1 font-display text-lg font-semibold">{health?.status === "maintenance" ? "Maintenance" : health?.status === "ok" ? "Operational" : "Checking…"}</p></div>
+                <span className={`h-3 w-3 rounded-full ${health?.status === "ok" ? "bg-sage shadow-[0_0_0_5px_rgba(74,137,96,.10)]" : health?.status === "maintenance" ? "bg-amber" : "bg-brick"}`} />
+              </div>
+              <p className="mt-1 text-[10px] text-ink/35">API · Mongo · worker runtime</p>
+            </div>
+            <div className="rounded-xl border border-line bg-white px-4 py-3 shadow-sm"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-ink/30">Queue</p><p className="mt-1 font-display text-lg font-semibold tabular-nums">{stats?.queue_depth ?? "—"}</p><p className="text-[10px] text-ink/35">waiting for release</p></div>
+            <div className="rounded-xl border border-line bg-white px-4 py-3 shadow-sm"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-ink/30">Completed today</p><p className="mt-1 font-display text-lg font-semibold tabular-nums">{stats?.completed_today ?? "—"}</p><p className="text-[10px] text-ink/35">successful runs</p></div>
+            <div className="rounded-xl border border-line bg-white px-4 py-3 shadow-sm"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-ink/30">Avg processing</p><p className="mt-1 font-display text-lg font-semibold tabular-nums">{stats?.avg_processing_seconds != null ? `${Math.floor(stats.avg_processing_seconds / 60)}m ${Math.round(stats.avg_processing_seconds % 60)}s` : "—"}</p><p className="text-[10px] text-ink/35">last 500 runs</p></div>
+            <div className="rounded-xl border border-line bg-white px-4 py-3 shadow-sm"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-ink/30">Success rate</p><p className="mt-1 font-display text-lg font-semibold tabular-nums">{stats && stats.counts.completed + stats.counts.failed > 0 ? `${((stats.counts.completed / (stats.counts.completed + stats.counts.failed)) * 100).toFixed(1)}%` : "—"}</p><p className="text-[10px] text-ink/35">completed vs failed</p></div>
+          </div>
+        )}
 
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white/60 p-2">
           <span className="mr-1 text-[10px] font-semibold uppercase tracking-[.14em] text-ink/35">Date</span>

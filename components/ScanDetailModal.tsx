@@ -207,6 +207,22 @@ export default function ScanDetailModal({
 
         {scan.client_input && <ClientMeasurements input={scan.client_input} />}
 
+        <section className="mt-4 rounded-xl border border-line bg-white/55 p-4">
+          <div className="mb-3"><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">Processing timeline</p><p className="mt-0.5 text-xs text-ink/45">A concise audit trail for this scan.</p></div>
+          <div className="space-y-3">
+            {[
+              ["Scan received", scan.created_at, true],
+              ["Processing started", scan.processing_started_at ?? null, !!scan.processing_started_at],
+              [scan.status === "failed" ? "Processing failed" : "Processing completed", scan.status === "failed" ? scan.failed_at ?? null : scan.completed_at ?? null, !!(scan.status === "failed" ? scan.failed_at : scan.completed_at)],
+            ].map(([label, at, active], i) => (
+              <div key={String(label)} className="flex items-start gap-3">
+                <div className="mt-1 flex flex-col items-center"><span className={`h-2.5 w-2.5 rounded-full ${active ? "bg-blueprint" : "bg-ink/15"}`} />{i < 2 && <span className="mt-1 h-5 w-px bg-line" />}</div>
+                <div className="min-w-0"><p className={`text-xs font-semibold ${active ? "text-ink/75" : "text-ink/30"}`}>{String(label)}</p><p className="mt-0.5 font-mono text-[10px] text-ink/35">{formatDate(at as string | null)}</p></div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {scan.status === "failed" && scan.error && (
           <div className="mt-3 rounded bg-brick/10 px-3 py-2 text-[12px] text-brick">
             <p className="mb-0.5 font-medium">Why processing stopped</p>
