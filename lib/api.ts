@@ -418,6 +418,12 @@ export async function reorderScan(settings: ConnectionSettings, scanId: string, 
   }
 }
 
+export interface EmailSettings {
+  enabled: boolean; provider: string; from_email: string; from_name: string; recipients: string[];
+  notify_scan_received: boolean; notify_scan_completed: boolean; notify_scan_failed: boolean; notify_system_errors: boolean; notify_queue_warnings: boolean;
+  cloudflare_configured?: boolean;
+}
+
 export interface SystemState { paused: boolean; maintenance: boolean; features: Record<string, boolean>; config: Record<string, number>; uptime_seconds: number; }
 export interface HealthResponse { status: string; uptime_seconds: number; queue_depth: number; processing: boolean; mongo_configured: boolean; platform: string; python: string; tools: Record<string, boolean>; }
 export interface SystemRow { at: string; level?: string; action: string; detail: string; }
@@ -447,6 +453,10 @@ export const updateSystemControl = (s: ConnectionSettings, body: {paused?:boolea
 export const updateFeatures = (s: ConnectionSettings, body: Record<string,boolean>) => postJson<SystemState>("/monitor/system/features",s,body);
 export const updateSystemConfig = (s: ConnectionSettings, body: Record<string,number>) => postJson<SystemState>("/monitor/system/config",s,body);
 export const runDiagnostics = (s: ConnectionSettings) => postJson<{checks:{name:string;ok:boolean}[];ran_at:string}>("/monitor/system/diagnostics",s,{});
+export const fetchEmailSettings = (s: ConnectionSettings) => request<EmailSettings>("/monitor/system/email", s);
+export const saveEmailSettings = (s: ConnectionSettings, body: EmailSettings) => postJson<EmailSettings>("/monitor/system/email", s, body);
+export const sendEmailTest = (s: ConnectionSettings) => postJson<{sent:boolean}>("/monitor/system/email/test", s, {});
+
 
 export interface AlertItem { id: string; at: string; severity: "info" | "warning" | "critical" | "success"; title: string; message: string; source: string; read: boolean; }
 export const fetchAlerts = (s: ConnectionSettings) => request<{items:AlertItem[]; unread:number}>("/monitor/alerts", s);
