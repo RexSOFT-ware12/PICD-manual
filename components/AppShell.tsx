@@ -16,6 +16,7 @@ const nav = [
   { href: "/audit", label: "Audit logs", icon: "✓", section: "Control", permission: "audit.read" },
   { href: "/gam", label: "GAM", icon: "◇", section: "Control", permission: "gam.read" },
   { href: "/csv-import", label: "CSV importer", icon: "⇅", section: "Control", permission: "csv.read" },
+  { href: "/daz-assets", label: "Daz Assets", icon: "◈", section: "Control", permission: "daz.read" },
   { href: "/system", label: "System settings", icon: "⌘", section: "Admin", permission: "system.read" },
   { href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage" },
 ];

@@ -540,3 +540,40 @@ export const startCSVImport = async (s: ConnectionSettings, file: File) => {
 };
 export const fetchCSVImportJob = (s: ConnectionSettings, id: string) => request<CSVImportJob>(`/monitor/csv-import/jobs/${encodeURIComponent(id)}`, s);
 export const fetchCSVImportStatus = (s: ConnectionSettings) => request<{active: CSVImportJob | null; pending_files: string[]}>("/monitor/csv-import/status", s);
+
+export interface DazAsset {
+  id: string;
+  gender: "male" | "female";
+  filename: string;
+  version: number;
+  size_bytes: number;
+  sha256: string;
+  active: boolean;
+  created_at: string | null;
+  created_by: string | null;
+  activated_at?: string | null;
+  activated_by?: string | null;
+}
+export interface DazAssetResponse { items: DazAsset[]; active: Record<string, DazAsset | undefined>; }
+
+export const fetchDazAssets = (s: ConnectionSettings) => request<DazAssetResponse>("/monitor/daz-assets", s);
+export async function uploadDazAsset(s: ConnectionSettings, file: File, gender: "male" | "female") {
+  const res = await fetch(`${s.baseUrl.replace(/\/$/, "")}/monitor/daz-assets`, {
+    method: "POST", credentials: "include",
+    headers: authHeaders({ "Content-Type": "application/octet-stream", "X-DAZ-Filename": file.name, "X-DAZ-Gender": gender }),
+    body: file, cache: "no-store",
+  });
+  if (!res.ok) { let detail = `DAZ asset upload failed (${res.status})`; try { const b=await res.json(); if(typeof b?.detail==="string") detail=b.detail; } catch {} throw new ApiError(detail,res.status); }
+  return await res.json() as DazAsset;
+}
+export const activateDazAsset = (s: ConnectionSettings, id: string) => postJson<DazAsset>(`/monitor/daz-assets/${encodeURIComponent(id)}/activate`, s, {});
+export async function deleteDazAsset(s: ConnectionSettings, id: string) {
+  const res=await fetch(`${s.baseUrl.replace(/\/$/, "")}/monitor/daz-assets/${encodeURIComponent(id)}`,{method:"DELETE",credentials:"include",headers:authHeaders(),cache:"no-store"});
+  if(!res.ok){let detail=`DAZ asset delete failed (${res.status})`;try{const b=await res.json();if(typeof b?.detail==="string")detail=b.detail}catch{}throw new ApiError(detail,res.status)}
+  return await res.json() as {ok:boolean};
+}
+export async function downloadDazAsset(s: ConnectionSettings, id: string, filename: string) {
+  const res=await fetch(`${s.baseUrl.replace(/\/$/, "")}/monitor/daz-assets/${encodeURIComponent(id)}/download`,{credentials:"include",headers:authHeaders(),cache:"no-store"});
+  if(!res.ok){let detail=`DAZ asset download failed (${res.status})`;try{const b=await res.json();if(typeof b?.detail==="string")detail=b.detail}catch{}throw new ApiError(detail,res.status)}
+  const blob=await res.blob(); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
