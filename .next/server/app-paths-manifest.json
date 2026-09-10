@@ -2,14 +2,14 @@
   "/_not-found/page": "app/_not-found/page.js",
   "/admins/page": "app/admins/page.js",
   "/audit/page": "app/audit/page.js",
-  "/analytics/page": "app/analytics/page.js",
   "/csv-import/page": "app/csv-import/page.js",
-  "/login/page": "app/login/page.js",
   "/gam/page": "app/gam/page.js",
+  "/login/page": "app/login/page.js",
+  "/analytics/page": "app/analytics/page.js",
   "/logs/page": "app/logs/page.js",
   "/notifications/page": "app/notifications/page.js",
   "/workers/page": "app/workers/page.js",
   "/daz-assets/page": "app/daz-assets/page.js",
-  "/system/page": "app/system/page.js",
-  "/page": "app/page.js"
+  "/page": "app/page.js",
+  "/system/page": "app/system/page.js"
 }

@@ -453,7 +453,7 @@ export interface EmailSettings {
 }
 
 export interface SystemState { paused: boolean; maintenance: boolean; features: Record<string, boolean>; config: Record<string, number>; uptime_seconds: number; }
-export interface HealthResponse { status: string; uptime_seconds: number; queue_depth: number; processing: boolean; mongo_configured: boolean; platform: string; python: string; tools: Record<string, boolean>; }
+export interface HealthResponse { status: string; uptime_seconds: number; queue_depth: number; processing: boolean; mongo_configured: boolean; platform: string; python: string; tools: Record<string, boolean>; cloud_mode?: boolean; processing_agent_required?: boolean; processing_agent?: { online: boolean; agent_id?: string | null; last_seen?: string | null }; }
 export interface SystemRow { at: string; level?: string; action: string; detail: string; }
 
 async function postJson<T>(path: string, settings: ConnectionSettings, body: unknown): Promise<T> {
