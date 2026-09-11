@@ -11,7 +11,7 @@ const nav = [
   { href: "/", label: "Dashboard", icon: "▦", section: "Monitor", permission: "scans.read" },
   { href: "/analytics", label: "Analytics", icon: "◒", section: "Monitor", permission: "analytics.read" },
   { href: "/notifications", label: "Notifications", icon: "♢", section: "Monitor", permission: "alerts.read" },
-  { href: "/workers", label: "Workers", icon: "⚙", section: "Control", permission: "system.manage" },
+  { href: "/workers", label: "Workers", icon: "⚙", section: "Control", permission: "system.read" },
   { href: "/logs", label: "System logs", icon: "≡", section: "Control", permission: "logs.read" },
   { href: "/audit", label: "Audit logs", icon: "✓", section: "Control", permission: "audit.read" },
   { href: "/gam", label: "GAM", icon: "◇", section: "Control", permission: "gam.read" },
