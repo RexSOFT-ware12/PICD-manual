@@ -118,7 +118,7 @@ export default function SystemPage() {
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailMessage, setEmailMessage] = useState<string | null>(null);
   const [settings, setSettings] = useState<ConnectionSettings>({ baseUrl: "", apiKey: "" });
-  const [diag, setDiag] = useState<{ name: string; ok: boolean }[] | null>(null);
+  const [diag, setDiag] = useState<{ name: string; ok: boolean; detail?: string; status?: "checking" | "done" }[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ kind: string; key?: string; value?: boolean } | null>(null);
@@ -185,9 +185,19 @@ export default function SystemPage() {
   };
 
   const diagnostics = async () => {
+    if (busy) return;
     setBusy(true);
-    try { setDiag((await runDiagnostics(loadSettings())).checks); }
-    catch (e) { setError(e instanceof ApiError ? e.message : "Diagnostics failed."); }
+    setError(null);
+    try {
+      const result = await runDiagnostics(loadSettings());
+      const checks = result.checks;
+      setDiag(checks.map(x => ({ ...x, status: "checking" as const })));
+      for (let i = 0; i < checks.length; i++) {
+        await new Promise(resolve => window.setTimeout(resolve, 420));
+        setDiag(prev => prev ? prev.map((x, j) => j === i ? { ...checks[i], status: "done" as const } : x) : prev);
+      }
+    }
+    catch (e) { setError(e instanceof ApiError ? e.message : "Diagnostics failed."); setDiag(null); }
     finally { setBusy(false); }
   };
 
@@ -363,7 +373,7 @@ export default function SystemPage() {
             <div id="system-access" className={`scroll-mt-5 ${activeSection !== "access" ? "hidden" : ""}`}><Card className="p-5"><h2 className="font-display font-semibold">Users & access</h2><p className="mt-1 text-xs text-ink/40">Admin accounts and server-side permissions are managed from the Admin accounts page.</p></Card></div>
             <div id="system-database" className={`scroll-mt-5 ${activeSection !== "database" ? "hidden" : ""}`}><Card className="p-5"><h2 className="font-display font-semibold">Database</h2><p className="mt-1 text-xs text-ink/40">MongoDB powers persistent scan, alert and authentication storage. Connection secrets remain on the backend.</p></Card></div>
 
-            <div id="system-logs" className={`scroll-mt-5 ${activeSection !== "logs" ? "hidden" : ""}`}><Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="font-display font-semibold">Diagnostics & logs</h2><p className="mt-1 text-xs text-ink/40">Run live checks against API, MongoDB, queue and worker.</p></div><button disabled={busy || !settings.baseUrl} onClick={diagnostics} className="rounded-lg border border-line px-3 py-2 text-[11px] font-semibold text-ink/60 disabled:opacity-40">Run full diagnostic</button></div>{diag && <div className="mt-4 grid grid-cols-2 gap-2">{diag.map(x => <div key={x.name} className={`rounded-xl px-3 py-2 text-xs font-semibold ${x.ok ? "bg-sage/10 text-sage" : "bg-brick/10 text-brick"}`}>{x.ok ? "✓" : "!"} {x.name}</div>)}</div>}</Card></div>
+            <div id="system-logs" className={`scroll-mt-5 ${activeSection !== "logs" ? "hidden" : ""}`}><Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="font-display font-semibold">Diagnostics & logs</h2><p className="mt-1 text-xs text-ink/40">Run live checks against API, MongoDB, queue, worker and scan storage.</p></div><button disabled={busy || !settings.baseUrl} onClick={diagnostics} className="rounded-lg border border-line px-3 py-2 text-[11px] font-semibold text-ink/60 disabled:opacity-40">{busy ? "Running checks…" : "Run full diagnostic"}</button></div>{busy && <div className="mt-4 rounded-xl border border-blueprint/15 bg-blueprint/5 px-4 py-3"><div className="flex items-center gap-3"><span className="h-4 w-4 animate-spin rounded-full border-2 border-blueprint/20 border-t-blueprint"/><div><p className="text-xs font-semibold text-blueprint">Live diagnostic in progress</p><p className="mt-0.5 text-[10px] text-blueprint/55">Checking each service and recording the result.</p></div></div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-blueprint/10"><div className="h-full w-1/3 animate-pulse rounded-full bg-blueprint"/></div></div>}{diag && <div className="mt-4 grid grid-cols-2 gap-2">{diag.map((x, i) => <div key={x.name} className={`rounded-xl border px-3 py-3 transition-all duration-300 ${x.status === "checking" ? "border-blueprint/20 bg-blueprint/5" : x.ok ? "border-sage/15 bg-sage/10" : "border-brick/15 bg-brick/10"}`}><div className={`flex items-center gap-2 text-xs font-semibold ${x.status === "checking" ? "text-blueprint" : x.ok ? "text-sage" : "text-brick"}`}>{x.status === "checking" ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blueprint/20 border-t-blueprint"/> : <span className={x.ok ? "text-sage" : "text-brick"}>{x.ok ? "✓" : "!"}</span>}<span>{x.name}</span></div><p className="mt-1 text-[10px] leading-4 text-ink/40">{x.status === "checking" ? "Checking…" : (x.detail || (x.ok ? "Check passed." : "Check failed."))}</p></div>)}</div>}</Card></div>
 
             <div className={activeSection === "general" ? "" : "hidden"}><Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="font-display font-semibold">Runtime configuration</h2><p className="mt-1 text-xs text-ink/40">Safe runtime settings. Secrets and source code remain protected.</p></div><button onClick={() => setPending({ kind: "config" })} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper">Save</button></div><div className="mt-4 grid grid-cols-2 gap-3">{state && Object.entries(state.config).map(([k, v]) => <label key={k} className="text-xs text-ink/55">{configLabels[k] ?? k}<input type="number" min="0" value={v} onChange={e => setState({ ...state, config: { ...state.config, [k]: Number(e.target.value) } })} className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2 font-mono text-xs outline-none focus:border-blueprint"/></label>)}</div></Card></div>
 

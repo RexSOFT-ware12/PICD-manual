@@ -29,6 +29,10 @@ export default function Column({
   onDelete,
   compact = false,
   boardStatus,
+  canProcess = false,
+  canMove = false,
+  canReorder = false,
+  canDelete = false,
 }: {
   status: ScanStatus;
   label: string;
@@ -43,13 +47,20 @@ export default function Column({
   onDelete?: (scanId: string) => void;
   compact?: boolean;
   boardStatus?: "delivered";
+  canProcess?: boolean;
+  canMove?: boolean;
+  canReorder?: boolean;
+  canDelete?: boolean;
 }) {
   const animatedCount = useAnimatedNumber(count);
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const scanId = e.dataTransfer.getData("text/scan-id");
-    if (scanId) onDropScan?.(scanId, status);
+    if (scanId) {
+      const allowed = status === "processing" ? canProcess : status === "queued" ? canMove : false;
+      if (allowed) onDropScan?.(scanId, status);
+    }
     e.currentTarget.classList.remove("ring-2", "ring-blueprint/30");
   };
 
@@ -65,6 +76,8 @@ export default function Column({
       </div>
       <div
         onDragOver={(e) => {
+          const allowed = status === "processing" ? canProcess : status === "queued" ? canMove : false;
+          if (!allowed) return;
           e.preventDefault();
           e.dataTransfer.dropEffect = "move";
           e.currentTarget.classList.add("ring-2", "ring-blueprint/30", "bg-blueprint/[0.045]");
@@ -80,11 +93,11 @@ export default function Column({
             scan={scan}
             onRetried={onRetried}
             onMoved={onMoved}
-            draggable={scan.status === "failed" || scan.status === "processing" || scan.status === "queued"}
+            draggable={(scan.status === "queued" && (canReorder || canProcess)) || ((scan.status === "failed" || scan.status === "processing") && canMove)}
             deleteMode={deleteMode}
             deleting={deletingScan === scan.scan_id}
-            onDelete={onDelete}
-            onDropBefore={onDropBefore}
+            onDelete={canDelete ? onDelete : undefined}
+            onDropBefore={canReorder ? onDropBefore : undefined}
             compact={compact}
             displayStatus={boardStatus}
             style={{ animationDelay: `${Math.min(i * STAGGER_STEP_MS, MAX_STAGGER_MS)}ms` }}

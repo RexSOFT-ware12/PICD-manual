@@ -19,6 +19,7 @@ import {
   type StatsResponse,
   type HealthResponse,
   type ConnectionSettings as Settings,
+  hasPermission,
 } from "@/lib/api";
 import { useAnimatedNumber } from "@/lib/useAnimatedNumber";
 import ConnectionSettingsPanel, {
@@ -120,6 +121,10 @@ export default function Home() {
   const [showOnlyActive, setShowOnlyActive] = useState(false);
   const [deletingScan, setDeletingScan] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{scanId:string}|null>(null);
+  const [canProcess, setCanProcess] = useState(false);
+  const [canMove, setCanMove] = useState(false);
+  const [canReorder, setCanReorder] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
 
   const searchRef = useRef(search);
   searchRef.current = search;
@@ -138,6 +143,10 @@ export default function Home() {
 
   useEffect(() => {
     setSettings(loadSettings());
+    setCanProcess(hasPermission("scans.process"));
+    setCanMove(hasPermission("scans.move"));
+    setCanReorder(hasPermission("scans.reorder"));
+    setCanDelete(hasPermission("scans.delete"));
     setReady(true);
   }, []);
 
@@ -268,7 +277,7 @@ export default function Home() {
   };
 
   const handleTriggerNext = async () => {
-    if (triggering || (stats?.queue_depth ?? 0) === 0) return;
+    if (!canProcess || triggering || (stats?.queue_depth ?? 0) === 0) return;
     setTriggering(true);
     setTriggerMessage(null);
     try {
@@ -288,6 +297,7 @@ export default function Home() {
     if (!scan) return;
 
     if (target === "processing" && scan.status === "queued") {
+      if (!canProcess) return;
       setMovingScan(scanId);
       setTriggerMessage(null);
       try {
@@ -303,6 +313,7 @@ export default function Home() {
     }
 
     if (target !== "queued" || movingScan) return;
+    if (!canMove) return;
     if (scan.status !== "failed" && scan.status !== "processing") return;
     setMovingScan(scanId);
     setTriggerMessage(null);
@@ -318,6 +329,7 @@ export default function Home() {
   };
 
   const handleReorder = async (scanId: string, beforeScanId: string) => {
+    if (!canReorder) return;
     const source = scans.find((s) => s.scan_id === scanId);
     if (!source || source.status !== "queued" || scanId === beforeScanId) return;
     setMovingScan(scanId);
@@ -340,6 +352,7 @@ export default function Home() {
   };
 
   const handleDelete = async (scanId: string) => {
+    if (!canDelete) return;
     const scan = scans.find((s) => s.scan_id === scanId);
     if (!scan || scan.status === "completed" || deletingScan) return;
     setConfirmDelete({scanId});
@@ -526,6 +539,10 @@ export default function Home() {
                 deleteMode={deleteMode}
                 deletingScan={deletingScan}
                 onDelete={handleDelete}
+                canProcess={canProcess}
+                canMove={canMove}
+                canReorder={canReorder}
+                canDelete={canDelete}
                 compact={compact}
                 />
               </div>

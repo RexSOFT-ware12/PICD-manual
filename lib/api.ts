@@ -138,11 +138,18 @@ export async function logoutAdmin(settings: ConnectionSettings) {
   if (typeof window !== "undefined") window.sessionStorage.removeItem("picd-csrf");
 }
 
-export interface AdminRecord extends AuthAdmin { id: string; active: boolean; created_at: string | null; last_login_at: string | null; }
+export interface AdminRecord extends AuthAdmin { id: string; email: string; active: boolean; created_at: string | null; last_login_at: string | null; invitation_pending?: boolean; invitation_expires_at?: string | null; }
 export interface AdminsResponse { items: AdminRecord[]; permissions: { key: string; label: string }[]; }
 export function fetchAdmins(settings: ConnectionSettings) { return request<AdminsResponse>("/auth/admins", settings); }
-export function createAdmin(settings: ConnectionSettings, body: { username: string; password: string; permissions: string[] }) { return postJson<AdminRecord>("/auth/admins", settings, body); }
+export function createAdmin(settings: ConnectionSettings, body: { email: string; permissions: string[] }) { return postJson<AdminRecord>("/auth/admins", settings, body); }
 export function updateAdmin(settings: ConnectionSettings, id: string, body: { active?: boolean; permissions?: string[]; password?: string }) { return patchJson<AdminRecord>(`/auth/admins/${encodeURIComponent(id)}`, settings, body); }
+export function resendAdminInvitation(settings: ConnectionSettings, id: string) { return postJson<AdminRecord>(`/auth/admins/${encodeURIComponent(id)}/resend-invitation`, settings, {}); }
+export function getInvitation(settings: ConnectionSettings, token: string) { return request<{ email: string; expires_at: string }>(`/auth/invitations/${encodeURIComponent(token)}`, settings); }
+export function acceptInvitation(settings: ConnectionSettings, token: string, password: string) { return postJson<{ ok: boolean; email: string }>("/auth/invitations/accept", settings, { token, password }); }
+export function hasPermission(permission: string): boolean {
+  if (typeof window === "undefined") return false;
+  try { const raw = window.sessionStorage.getItem("picd-auth-admin"); const admin = raw ? JSON.parse(raw) as AuthMe : null; return !!admin && (admin.is_super_admin || admin.permissions?.includes(permission)); } catch { return false; }
+}
 
 const SETTINGS_KEY = "picd-monitor-settings";
 
@@ -568,7 +575,7 @@ export const fetchBodyAnalyzerConfig = (s: ConnectionSettings) => request<BodyAn
 export const updateBodyAnalyzerConfig = (s: ConnectionSettings, body: BodyAnalyzerConfig | { _reset: boolean }) => postJson<BodyAnalyzerConfig>("/monitor/system/body-analyzer-config", s, body);
 export const fetchClientEstimateConfig = (s: ConnectionSettings) => request<ClientEstimateConfig>("/monitor/system/client-estimate-config", s);
 export const updateClientEstimateConfig = (s: ConnectionSettings, body: ClientEstimateConfig | { _reset: boolean }) => postJson<ClientEstimateConfig>("/monitor/system/client-estimate-config", s, body);
-export const runDiagnostics = (s: ConnectionSettings) => postJson<{checks:{name:string;ok:boolean}[];ran_at:string}>("/monitor/system/diagnostics",s,{});
+export const runDiagnostics = (s: ConnectionSettings) => postJson<{checks:{name:string;ok:boolean;detail?:string}[];ran_at:string}>("/monitor/system/diagnostics",s,{});
 export const fetchEmailSettings = (s: ConnectionSettings) => request<EmailSettings>("/monitor/system/email", s);
 export const saveEmailSettings = (s: ConnectionSettings, body: EmailSettings) => postJson<EmailSettings>("/monitor/system/email", s, body);
 export const sendEmailTest = (s: ConnectionSettings) => postJson<{sent:boolean}>("/monitor/system/email/test", s, {});
