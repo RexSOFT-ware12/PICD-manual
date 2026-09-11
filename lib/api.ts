@@ -491,6 +491,14 @@ export interface ClientEstimateConfig {
   gam_fallback: number;
 }
 
+export interface BodyAnalyzerConfig {
+  search: { morph_increment: number; start_morph_percent: number; maximum_morph_percent: number };
+  bust_adjustment: { positive_base: number; positive_scale: number; negative_base: number; negative_scale: number };
+  height_conversion: { thigh_y_offset_inches: number; natural_waist_to_high_hip_inches: number };
+  body_defaults: { client_height: number; gl_new: number; nw_new: number; thea_y: number; tglu_y: number; twai_y: number; tcro_y: number };
+  shape_selection: { body_level_count: number; use_busthigh8: boolean };
+}
+
 export interface SystemState { paused: boolean; maintenance: boolean; features: Record<string, boolean>; config: Record<string, number>; uptime_seconds: number; }
 export interface HealthResponse { status: string; uptime_seconds: number; queue_depth: number; processing: boolean; mongo_configured: boolean; platform: string; python: string; tools: Record<string, boolean>; cloud_mode?: boolean; processing_agent_required?: boolean; processing_agent?: { online: boolean; agent_id?: string | null; last_seen?: string | null }; }
 export interface SystemRow { at: string; level?: string; action: string; detail: string; }
@@ -529,6 +537,8 @@ export const fetchLogs = (s: ConnectionSettings, level="all") => request<{items:
 export const updateSystemControl = (s: ConnectionSettings, body: {paused?:boolean;maintenance?:boolean}) => postJson<SystemState>("/monitor/system/control",s,body);
 export const updateFeatures = (s: ConnectionSettings, body: Record<string,boolean>) => postJson<SystemState>("/monitor/system/features",s,body);
 export const updateSystemConfig = (s: ConnectionSettings, body: Record<string,number>) => postJson<SystemState>("/monitor/system/config",s,body);
+export const fetchBodyAnalyzerConfig = (s: ConnectionSettings) => request<BodyAnalyzerConfig>("/monitor/system/body-analyzer-config", s);
+export const updateBodyAnalyzerConfig = (s: ConnectionSettings, body: BodyAnalyzerConfig | { _reset: boolean }) => postJson<BodyAnalyzerConfig>("/monitor/system/body-analyzer-config", s, body);
 export const fetchClientEstimateConfig = (s: ConnectionSettings) => request<ClientEstimateConfig>("/monitor/system/client-estimate-config", s);
 export const updateClientEstimateConfig = (s: ConnectionSettings, body: ClientEstimateConfig | { _reset: boolean }) => postJson<ClientEstimateConfig>("/monitor/system/client-estimate-config", s, body);
 export const runDiagnostics = (s: ConnectionSettings) => postJson<{checks:{name:string;ok:boolean}[];ran_at:string}>("/monitor/system/diagnostics",s,{});

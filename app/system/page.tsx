@@ -9,6 +9,8 @@ import {
   ApiError,
   fetchHealth,
   fetchSystemState,
+  fetchBodyAnalyzerConfig,
+  updateBodyAnalyzerConfig,
   fetchClientEstimateConfig,
   fetchEmailSettings,
   loadSettings,
@@ -21,6 +23,7 @@ import {
   updateClientEstimateConfig,
   type ConnectionSettings,
   type ClientEstimateConfig,
+  type BodyAnalyzerConfig,
   type EmailSettings,
   type HealthResponse,
   type SystemState,
@@ -107,6 +110,8 @@ function EmailSidebar({ email }: { email: EmailSettings | null }) {
 export default function SystemPage() {
   const [state, setState] = useState<SystemState | null>(null);
   const [clientEstimate, setClientEstimate] = useState<ClientEstimateConfig | null>(null);
+  const [bodyAnalyzer, setBodyAnalyzer] = useState<BodyAnalyzerConfig | null>(null);
+  const [bodyAnalyzerMessage, setBodyAnalyzerMessage] = useState<string | null>(null);
   const [estimateMessage, setEstimateMessage] = useState<string | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [email, setEmail] = useState<EmailSettings | null>(null);
@@ -119,7 +124,7 @@ export default function SystemPage() {
   const [pending, setPending] = useState<{ kind: string; key?: string; value?: boolean } | null>(null);
   const [activeSection, setActiveSection] = useState("email");
   const [notificationSound, setNotificationSound] = useState<NotificationSound>("default");
-  const loading = !!settings.baseUrl && (!state || !health || !email || !clientEstimate);
+  const loading = !!settings.baseUrl && (!state || !health || !email || !clientEstimate || !bodyAnalyzer);
 
   useEffect(() => { setSettings(loadSettings()); setNotificationSound(loadNotificationSound()); }, []);
 
@@ -127,8 +132,8 @@ export default function SystemPage() {
     const s = loadSettings();
     if (!s.baseUrl) return;
     try {
-      const [a, b, c, d] = await Promise.all([fetchSystemState(s), fetchHealth(s), fetchEmailSettings(s), fetchClientEstimateConfig(s)]);
-      setState(a); setHealth(b); setEmail(c); setClientEstimate(d); setError(null);
+      const [a, b, c, d, e] = await Promise.all([fetchSystemState(s), fetchHealth(s), fetchEmailSettings(s), fetchClientEstimateConfig(s), fetchBodyAnalyzerConfig(s)]);
+      setState(a); setHealth(b); setEmail(c); setClientEstimate(d); setBodyAnalyzer(e); setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Could not load system settings.");
     }
@@ -136,10 +141,7 @@ export default function SystemPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const scrollTo = (id: string) => {
-    setActiveSection(id);
-    document.getElementById(`system-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  const selectSection = (id: string) => { setActiveSection(id); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
   const control = async (k: string, v: boolean) => {
     try { setState(await updateFeatures(loadSettings(), { [k]: v })); }
@@ -167,6 +169,19 @@ export default function SystemPage() {
       setClientEstimate(await updateClientEstimateConfig(loadSettings(), { _reset: true }));
       setEstimateMessage("Client estimate defaults restored.");
     } catch (e) { setEstimateMessage(e instanceof ApiError ? e.message : "Could not restore client estimate defaults."); }
+  };
+
+  const saveBodyAnalyzer = async () => {
+    if (!bodyAnalyzer) return;
+    setBodyAnalyzerMessage(null);
+    try { setBodyAnalyzer(await updateBodyAnalyzerConfig(loadSettings(), bodyAnalyzer)); setBodyAnalyzerMessage("Body analyzer settings saved."); }
+    catch (e) { setBodyAnalyzerMessage(e instanceof ApiError ? e.message : "Could not save body analyzer settings."); }
+  };
+
+  const resetBodyAnalyzer = async () => {
+    setBodyAnalyzerMessage(null);
+    try { setBodyAnalyzer(await updateBodyAnalyzerConfig(loadSettings(), { _reset: true })); setBodyAnalyzerMessage("Body analyzer defaults restored."); }
+    catch (e) { setBodyAnalyzerMessage(e instanceof ApiError ? e.message : "Could not restore body analyzer defaults."); }
   };
 
   const diagnostics = async () => {
@@ -242,17 +257,18 @@ export default function SystemPage() {
             ["general", "General Settings"],
             ["features", "Feature Flags"],
             ["estimate", "Client Estimate"],
+            ["body", "Body Analyzer"],
             ["access", "Users & Access"],
             ["database", "Database"],
             ["logs", "Logs"],
           ].map(([id, label]) => (
-            <button key={id} onClick={() => scrollTo(id)} className={`rounded-lg px-3 py-2 text-[10px] font-semibold transition ${activeSection === id ? "bg-blueprint text-paper" : "text-ink/50 hover:bg-paper hover:text-ink"}`}>{label}</button>
+            <button key={id} onClick={() => selectSection(id)} className={`rounded-lg px-3 py-2 text-[10px] font-semibold transition ${activeSection === id ? "bg-blueprint text-paper" : "text-ink/50 hover:bg-paper hover:text-ink"}`}>{label}</button>
           ))}
         </div>
 
         {loading ? <div className="space-y-4">{Array.from({length:4}).map((_,i)=><div key={i} className="animate-pulse rounded-2xl border border-line bg-white p-6"><div className="h-5 w-48 rounded bg-ink/[.06]"/><div className="mt-3 h-3 w-80 rounded bg-ink/[.04]"/><div className="mt-6 grid grid-cols-2 gap-3"><div className="h-10 rounded-lg bg-ink/[.035]"/><div className="h-10 rounded-lg bg-ink/[.035]"/></div><div className="mt-4 h-20 rounded-xl bg-ink/[.035]"/></div>)}</div> : <div className="min-w-0 space-y-4">
-            <Card className="overflow-hidden">
-              <div id="system-email" className="scroll-mt-5 border-b border-line px-5 py-5">
+            <Card className={`overflow-hidden ${activeSection === "email" ? "" : "hidden"}`}>
+              <div id="system-email" className={`scroll-mt-5 ${activeSection !== "email" ? "hidden" : ""} border-b border-line px-5 py-5`}>
                 <div className="flex items-start justify-between gap-5">
                   <div className="flex min-w-0 items-start gap-3">
                     <div className="rounded-xl bg-[#e7f1ff] p-2.5 text-blueprint"><Icon name="mail" size={22}/></div>
@@ -304,7 +320,7 @@ export default function SystemPage() {
               </div>}
             </Card>
 
-            <div id="system-sound" className="scroll-mt-5"><Card className="p-5">
+            <div id="system-sound" className={`scroll-mt-5 ${activeSection !== "sound" ? "hidden" : ""}`}><Card className="p-5">
               <div className="flex items-start justify-between gap-6">
                 <div><h2 className="font-display font-semibold">Notification sound</h2><p className="mt-1 text-xs leading-5 text-ink/40">Choose the sound played when a new dashboard notification arrives. Your choice is saved on this browser.</p></div>
                 <button onClick={() => playNotificationSound("incoming", notificationSound)} disabled={notificationSound === "silent"} className="shrink-0 rounded-lg border border-line bg-white px-3 py-2 text-[10px] font-bold text-ink/60 transition hover:border-blueprint/30 hover:text-blueprint disabled:cursor-not-allowed disabled:opacity-40">Test sound</button>
@@ -317,11 +333,11 @@ export default function SystemPage() {
               </div>
             </Card></div>
 
-            <div id="system-general" className="scroll-mt-5"><Card className="p-5"><div className="mb-4 flex items-start justify-between"><div><h2 className="font-display font-semibold">General settings</h2><p className="mt-1 text-xs text-ink/40">Backend connection used by the authenticated desktop dashboard.</p></div><ConnectionSettingsPanel settings={settings} status={connectionStatus} onSave={save}/></div></Card></div>
+            <div id="system-general" className={`scroll-mt-5 ${activeSection !== "general" ? "hidden" : ""}`}><Card className="p-5"><div className="mb-4 flex items-start justify-between"><div><h2 className="font-display font-semibold">General settings</h2><p className="mt-1 text-xs text-ink/40">Backend connection used by the authenticated desktop dashboard.</p></div><ConnectionSettingsPanel settings={settings} status={connectionStatus} onSave={save}/></div></Card></div>
 
-            <div id="system-features" className="scroll-mt-5"><Card className="p-5"><h2 className="font-display font-semibold">Feature flags</h2><p className="mt-1 text-xs leading-5 text-ink/40">Turn optional operational capabilities on or off without editing source code. Automatic queue is OFF by default; when enabled, the next queued scan starts only after the current scan finishes.</p><div className="mt-4 grid grid-cols-2 gap-2">{state && Object.entries(state.features).map(([k, v]) => <button key={k} onClick={() => setPending({ kind: `feature:${k}`, key: k, value: !v })} className="flex items-center justify-between rounded-xl border border-line px-3 py-3 text-xs transition hover:border-blueprint/20"><span>{featureLabels[k] ?? k}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${v ? "bg-sage/10 text-sage" : "bg-ink/5 text-ink/35"}`}>{v ? "ON" : "OFF"}</span></button>)}</div></Card></div>
+            <div id="system-features" className={`scroll-mt-5 ${activeSection !== "features" ? "hidden" : ""}`}><Card className="p-5"><h2 className="font-display font-semibold">Feature flags</h2><p className="mt-1 text-xs leading-5 text-ink/40">Turn optional operational capabilities on or off without editing source code. Automatic queue is OFF by default; when enabled, the next queued scan starts only after the current scan finishes.</p><div className="mt-4 grid grid-cols-2 gap-2">{state && Object.entries(state.features).map(([k, v]) => <button key={k} onClick={() => setPending({ kind: `feature:${k}`, key: k, value: !v })} className="flex items-center justify-between rounded-xl border border-line px-3 py-3 text-xs transition hover:border-blueprint/20"><span>{featureLabels[k] ?? k}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${v ? "bg-sage/10 text-sage" : "bg-ink/5 text-ink/35"}`}>{v ? "ON" : "OFF"}</span></button>)}</div></Card></div>
 
-            <div id="system-estimate" className="scroll-mt-5"><Card className="overflow-hidden">
+            <div id="system-estimate" className={`scroll-mt-5 ${activeSection !== "estimate" ? "hidden" : ""}`}><Card className="overflow-hidden">
               <div className="border-b border-line px-5 py-5 flex items-start justify-between gap-5"><div><h2 className="font-display font-semibold">Client estimate configuration</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-ink/40">Tune the client-estimate calculation without editing Python. These values control state thresholds, ellipse perimeter corrections, slider percentages and safety limits. Changes apply to new processing runs.</p></div><div className="flex shrink-0 gap-2"><button onClick={resetClientEstimate} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55">Restore defaults</button><button onClick={saveClientEstimate} disabled={!clientEstimate} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper disabled:opacity-40">Save estimate settings</button></div></div>
               {clientEstimate && <div className="space-y-5 px-5 py-5">
                 <div><h3 className="text-xs font-semibold">State selection thresholds</h3><p className="mt-1 text-[10px] text-ink/35">Ratios used to decide between Gen8, HW2 and HW3 families.</p><div className="mt-3 grid grid-cols-2 gap-3">{Object.entries(clientEstimate.state_selection).map(([k,v])=><label key={k} className="text-[11px] font-semibold text-ink/55">{k === "hw3_width_ratio_limit" ? "HW3 glute width / circumference limit" : "HW2 high-hip / glute-width limit"}<input type="number" step="0.01" value={v} onChange={e=>setClientEstimate({...clientEstimate,state_selection:{...clientEstimate.state_selection,[k]:Number(e.target.value)}})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 text-xs font-mono outline-none focus:border-blueprint/50"/></label>)}</div></div>
@@ -332,14 +348,26 @@ export default function SystemPage() {
               </div>}
             </Card></div>
 
-            <div id="system-access" className="scroll-mt-5"><Card className="p-5"><h2 className="font-display font-semibold">Users & access</h2><p className="mt-1 text-xs text-ink/40">Admin accounts and server-side permissions are managed from the Admin accounts page.</p></Card></div>
-            <div id="system-database" className="scroll-mt-5"><Card className="p-5"><h2 className="font-display font-semibold">Database</h2><p className="mt-1 text-xs text-ink/40">MongoDB powers persistent scan, alert and authentication storage. Connection secrets remain on the backend.</p></Card></div>
+            <div id="system-body" className={`scroll-mt-5 ${activeSection !== "body" ? "hidden" : ""}`}><Card className="overflow-hidden">
+              <div className="border-b border-line px-5 py-5 flex items-start justify-between gap-5"><div><h2 className="font-display font-semibold">Body analyzer configuration</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-ink/40">Tune safe Body Analyzer calibration and search behavior without editing Python. Changes apply to new processing runs.</p></div><div className="flex shrink-0 gap-2"><button onClick={resetBodyAnalyzer} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55">Restore defaults</button><button onClick={saveBodyAnalyzer} disabled={!bodyAnalyzer} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper disabled:opacity-40">Save analyzer settings</button></div></div>
+              {bodyAnalyzer && <div className="space-y-5 px-5 py-5">
+                <div><h3 className="text-xs font-semibold">Best-fit search</h3><p className="mt-1 text-[10px] text-ink/35">Controls the morph sweep used when selecting the closest body shape.</p><div className="mt-3 grid grid-cols-3 gap-3">{Object.entries(bodyAnalyzer.search).map(([k,v])=><label key={k} className="text-[11px] font-semibold text-ink/55">{k.replaceAll("_"," ")}<input type="number" step="0.001" value={v} onChange={e=>setBodyAnalyzer({...bodyAnalyzer,search:{...bodyAnalyzer.search,[k]:Number(e.target.value)}})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 text-xs font-mono outline-none focus:border-blueprint/50"/></label>)}</div></div>
+                <div><h3 className="text-xs font-semibold">Bust adjustment</h3><p className="mt-1 text-[10px] text-ink/35">Calibration coefficients used by the bust morph conversion.</p><div className="mt-3 grid grid-cols-4 gap-3">{Object.entries(bodyAnalyzer.bust_adjustment).map(([k,v])=><label key={k} className="text-[11px] font-semibold text-ink/55">{k.replaceAll("_"," ")}<input type="number" step="0.001" value={v} onChange={e=>setBodyAnalyzer({...bodyAnalyzer,bust_adjustment:{...bodyAnalyzer.bust_adjustment,[k]:Number(e.target.value)}})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 text-xs font-mono outline-none focus:border-blueprint/50"/></label>)}</div></div>
+                <div><h3 className="text-xs font-semibold">Height conversion</h3><div className="mt-3 grid grid-cols-2 gap-3">{Object.entries(bodyAnalyzer.height_conversion).map(([k,v])=><label key={k} className="text-[11px] font-semibold text-ink/55">{k.replaceAll("_"," ")}<input type="number" step="0.1" value={v} onChange={e=>setBodyAnalyzer({...bodyAnalyzer,height_conversion:{...bodyAnalyzer.height_conversion,[k]:Number(e.target.value)}})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 text-xs font-mono outline-none focus:border-blueprint/50"/></label>)}</div></div>
+                <div><h3 className="text-xs font-semibold">Body defaults</h3><p className="mt-1 text-[10px] text-ink/35">Fallback values used when source client measurements are unavailable.</p><div className="mt-3 grid grid-cols-4 gap-3">{Object.entries(bodyAnalyzer.body_defaults).map(([k,v])=><label key={k} className="text-[11px] font-semibold text-ink/55">{k.replaceAll("_"," ")}<input type="number" step="0.1" value={v} onChange={e=>setBodyAnalyzer({...bodyAnalyzer,body_defaults:{...bodyAnalyzer.body_defaults,[k]:Number(e.target.value)}})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 text-xs font-mono outline-none focus:border-blueprint/50"/></label>)}</div></div>
+                <div><h3 className="text-xs font-semibold">Shape selection</h3><div className="mt-3 grid grid-cols-2 gap-3">{Object.entries(bodyAnalyzer.shape_selection).map(([k,v])=><label key={k} className="flex items-center justify-between rounded-xl border border-line bg-white px-3 py-3 text-[11px] font-semibold text-ink/55">{k.replaceAll("_"," ")}{typeof v === "boolean" ? <input type="checkbox" checked={v} onChange={e=>setBodyAnalyzer({...bodyAnalyzer,shape_selection:{...bodyAnalyzer.shape_selection,[k]:e.target.checked}})} className="h-4 w-4 accent-blueprint"/> : <input type="number" min="1" step="1" value={v} onChange={e=>setBodyAnalyzer({...bodyAnalyzer,shape_selection:{...bodyAnalyzer.shape_selection,[k]:Number(e.target.value)}})} className="ml-3 h-9 w-28 rounded-lg border border-line bg-paper px-3 text-xs font-mono outline-none focus:border-blueprint"/>}</label>)}</div></div>
+                {bodyAnalyzerMessage && <div className={`rounded-xl px-3 py-2 text-[11px] ${bodyAnalyzerMessage.includes("Could") ? "bg-brick/10 text-brick" : "bg-sage/10 text-sage"}`}>{bodyAnalyzerMessage}</div>}
+              </div>}
+            </Card></div>
 
-            <div id="system-logs" className="scroll-mt-5"><Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="font-display font-semibold">Diagnostics & logs</h2><p className="mt-1 text-xs text-ink/40">Run live checks against API, MongoDB, queue and worker.</p></div><button disabled={busy || !settings.baseUrl} onClick={diagnostics} className="rounded-lg border border-line px-3 py-2 text-[11px] font-semibold text-ink/60 disabled:opacity-40">Run full diagnostic</button></div>{diag && <div className="mt-4 grid grid-cols-2 gap-2">{diag.map(x => <div key={x.name} className={`rounded-xl px-3 py-2 text-xs font-semibold ${x.ok ? "bg-sage/10 text-sage" : "bg-brick/10 text-brick"}`}>{x.ok ? "✓" : "!"} {x.name}</div>)}</div>}</Card></div>
+            <div id="system-access" className={`scroll-mt-5 ${activeSection !== "access" ? "hidden" : ""}`}><Card className="p-5"><h2 className="font-display font-semibold">Users & access</h2><p className="mt-1 text-xs text-ink/40">Admin accounts and server-side permissions are managed from the Admin accounts page.</p></Card></div>
+            <div id="system-database" className={`scroll-mt-5 ${activeSection !== "database" ? "hidden" : ""}`}><Card className="p-5"><h2 className="font-display font-semibold">Database</h2><p className="mt-1 text-xs text-ink/40">MongoDB powers persistent scan, alert and authentication storage. Connection secrets remain on the backend.</p></Card></div>
 
-            <Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="font-display font-semibold">Runtime configuration</h2><p className="mt-1 text-xs text-ink/40">Safe runtime settings. Secrets and source code remain protected.</p></div><button onClick={() => setPending({ kind: "config" })} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper">Save</button></div><div className="mt-4 grid grid-cols-2 gap-3">{state && Object.entries(state.config).map(([k, v]) => <label key={k} className="text-xs text-ink/55">{configLabels[k] ?? k}<input type="number" min="0" value={v} onChange={e => setState({ ...state, config: { ...state.config, [k]: Number(e.target.value) } })} className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2 font-mono text-xs outline-none focus:border-blueprint"/></label>)}</div></Card>
+            <div id="system-logs" className={`scroll-mt-5 ${activeSection !== "logs" ? "hidden" : ""}`}><Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="font-display font-semibold">Diagnostics & logs</h2><p className="mt-1 text-xs text-ink/40">Run live checks against API, MongoDB, queue and worker.</p></div><button disabled={busy || !settings.baseUrl} onClick={diagnostics} className="rounded-lg border border-line px-3 py-2 text-[11px] font-semibold text-ink/60 disabled:opacity-40">Run full diagnostic</button></div>{diag && <div className="mt-4 grid grid-cols-2 gap-2">{diag.map(x => <div key={x.name} className={`rounded-xl px-3 py-2 text-xs font-semibold ${x.ok ? "bg-sage/10 text-sage" : "bg-brick/10 text-brick"}`}>{x.ok ? "✓" : "!"} {x.name}</div>)}</div>}</Card></div>
 
-            <p className="pb-5 text-[10px] text-ink/30">Platform: {health?.platform ?? "—"} · Python: {health?.python ?? "—"} · Mongo configured: {health?.mongo_configured ? "yes" : "no"}</p>
+            <div className={activeSection === "general" ? "" : "hidden"}><Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="font-display font-semibold">Runtime configuration</h2><p className="mt-1 text-xs text-ink/40">Safe runtime settings. Secrets and source code remain protected.</p></div><button onClick={() => setPending({ kind: "config" })} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper">Save</button></div><div className="mt-4 grid grid-cols-2 gap-3">{state && Object.entries(state.config).map(([k, v]) => <label key={k} className="text-xs text-ink/55">{configLabels[k] ?? k}<input type="number" min="0" value={v} onChange={e => setState({ ...state, config: { ...state.config, [k]: Number(e.target.value) } })} className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2 font-mono text-xs outline-none focus:border-blueprint"/></label>)}</div></Card></div>
+
+            <p className={`pb-5 text-[10px] text-ink/30 ${activeSection === "general" ? "" : "hidden"}`}>Platform: {health?.platform ?? "—"} · Python: {health?.python ?? "—"} · Mongo configured: {health?.mongo_configured ? "yes" : "no"}</p>
           </div>}
         </div>
       </div>
