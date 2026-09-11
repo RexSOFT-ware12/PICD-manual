@@ -148,7 +148,7 @@ export default function SystemPage() {
     if (!s.baseUrl) return;
     try {
       const [a, b, c, d, e, f, g, h] = await Promise.all([fetchSystemState(s), fetchHealth(s), fetchEmailSettings(s), fetchClientEstimateConfig(s), fetchBodyAnalyzerConfig(s), fetchOperationalConfig(s), fetchGlobalVariables(s), fetchUICustomization(s)]);
-      setState(a); setHealth(b); setEmail(c); setClientEstimate(d); setBodyAnalyzer(e); setOperational(f); setGlobalVariables({ ...g, variables: Array.isArray(g?.variables) ? g.variables : [] }); setUiCustomization({ ...h, navigation: Array.isArray(h?.navigation) ? h.navigation : [] }); setError(null);
+      setState(a); setHealth(b); setEmail(c); setClientEstimate(d); setBodyAnalyzer(e); setOperational(f); setGlobalVariables({ ...g, variables: Array.isArray(g?.variables) ? g.variables : [] }); setUiCustomization({ ...h, navigation: Array.isArray(h?.navigation) ? h.navigation.filter(Boolean) : [], theme: { ...(h?.theme || {}), sidebar: { ...(h?.theme?.sidebar || {}) }, page: { ...(h?.theme?.page || {}) }, layout: { ...(h?.theme?.layout || {}) } } }); setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Could not load system settings.");
     }

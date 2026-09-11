@@ -86,8 +86,45 @@ export default function AppShell({ children }: { children: ReactNode }) {
     fetchUICustomization(settings).then(setUi).catch(() => {});
   }, [admin, settings]);
 
-  const navigation = (ui?.navigation?.length ? ui.navigation : defaultNav).slice().sort((a,b) => a.order - b.order);
+  const rawNavigation = Array.isArray(ui?.navigation) ? ui.navigation : [];
+  const navigation = (rawNavigation.length ? rawNavigation : defaultNav)
+    .filter((item): item is typeof defaultNav[number] => !!item && typeof item === "object" && typeof item.href === "string" && typeof item.id === "string")
+    .map((item, index) => ({
+      ...item,
+      label: typeof item.label === "string" && item.label.trim() ? item.label : item.id,
+      section: typeof item.section === "string" && item.section.trim() ? item.section : "Monitor",
+      icon: typeof item.icon === "string" ? item.icon : "•",
+      permission: typeof item.permission === "string" ? item.permission : "scans.read",
+      visible: item.visible !== false,
+      order: Number.isFinite(Number(item.order)) ? Number(item.order) : index + 1,
+    }))
+    .sort((a,b) => a.order - b.order);
   const theme = ui?.theme;
+  // Keep concrete theme shapes even while the customization request is loading.
+  // Using {} here widens the type and makes strict TypeScript builds fail on property access.
+  const pageTheme = theme?.page ?? {
+    background: "#f3f2ed",
+    surface: "#ffffff",
+    border: "#d9d8d2",
+    text: "#1b2430",
+    muted_text: "#6b7280",
+    accent: "#315f9f",
+    success: "#4f8a6d",
+    warning: "#b7791f",
+    error: "#b84a4a",
+  };
+  const sidebarTheme = theme?.sidebar ?? {
+    background: "#17202b",
+    text: "#f7f7f3",
+    muted_text: "rgba(247,247,243,.55)",
+    section_text: "rgba(247,247,243,.42)",
+    active_background: "#315f9f",
+    active_text: "#ffffff",
+    hover_background: "rgba(255,255,255,.08)",
+    border: "rgba(255,255,255,.10)",
+    width_px: 248,
+  };
+  const layoutTheme = theme?.layout ?? { density: "comfortable" as const, sidebar_shadow: true };
 
   if (!admin) {
     return <div className="flex h-screen items-center justify-center bg-paper"><div className="rounded-2xl border border-line bg-white px-7 py-6 text-center shadow-sm"><div className="mx-auto mb-3 h-2.5 w-2.5 animate-pulse rounded-full bg-blueprint"/><p className="font-display text-sm font-semibold">Signing you in…</p><p className="mt-1 text-xs text-ink/40">Preparing your dashboard</p></div></div>;
@@ -109,8 +146,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <>
       <div className="mobile-unavailable" role="status" aria-live="polite"><div className="mobile-unavailable-card"><p className="mobile-unavailable-kicker">PICD Scan Queue Monitor</p><h1>Desktop dashboard only</h1><p>This monitoring dashboard is designed for desktop screens and is not available on mobile devices.</p></div></div>
-      <div className="desktop-dashboard picd-theme-root flex h-screen min-h-0 overflow-hidden" style={{"--picd-page-bg": theme?.page.background, "--picd-page-surface": theme?.page.surface, "--picd-page-border": theme?.page.border, "--picd-page-text": theme?.page.text, "--picd-page-muted": theme?.page.muted_text, "--picd-page-accent": theme?.page.accent, "--picd-success": theme?.page.success, "--picd-warning": theme?.page.warning, "--picd-error": theme?.page.error, "--picd-sidebar-bg": theme?.sidebar.background, "--picd-sidebar-text": theme?.sidebar.text, "--picd-sidebar-muted": theme?.sidebar.muted_text, "--picd-sidebar-section": theme?.sidebar.section_text, "--picd-sidebar-active-bg": theme?.sidebar.active_background, "--picd-sidebar-active-text": theme?.sidebar.active_text, "--picd-sidebar-hover": theme?.sidebar.hover_background, "--picd-sidebar-border": theme?.sidebar.border, "--picd-sidebar-width": `${theme?.sidebar.width_px ?? 248}px` } as CSSProperties}>
-        <aside className="picd-sidebar flex h-full shrink-0 flex-col px-4 py-5" style={{width:`${theme?.sidebar.width_px ?? 248}px`}}>
+      <div className="desktop-dashboard picd-theme-root flex h-screen min-h-0 overflow-hidden" style={{"--picd-page-bg": pageTheme.background, "--picd-page-surface": pageTheme.surface, "--picd-page-border": pageTheme.border, "--picd-page-text": pageTheme.text, "--picd-page-muted": pageTheme.muted_text, "--picd-page-accent": pageTheme.accent, "--picd-success": pageTheme.success, "--picd-warning": pageTheme.warning, "--picd-error": pageTheme.error, "--picd-sidebar-bg": sidebarTheme.background, "--picd-sidebar-text": sidebarTheme.text, "--picd-sidebar-muted": sidebarTheme.muted_text, "--picd-sidebar-section": sidebarTheme.section_text, "--picd-sidebar-active-bg": sidebarTheme.active_background, "--picd-sidebar-active-text": sidebarTheme.active_text, "--picd-sidebar-hover": sidebarTheme.hover_background, "--picd-sidebar-border": sidebarTheme.border, "--picd-sidebar-width": `${Number(sidebarTheme.width_px) || 248}px` } as CSSProperties}>
+        <aside className="picd-sidebar flex h-full shrink-0 flex-col px-4 py-5" style={{width:`${Number(sidebarTheme.width_px) || 248}px`}}>
           <Link href="/" className="picd-sidebar-brand mb-7 block px-3"><p className="font-display text-lg font-semibold leading-tight">Scan Queue<br/>Monitor</p><p className="mt-1 text-xs text-paper/45">PICD measurement pipeline</p></Link>
           <div className="picd-sidebar-live mb-3 flex items-center justify-between gap-2 px-1"><span className="text-[9px] font-bold uppercase tracking-[.18em] text-paper/25">Live center</span><NotificationCenter/></div>
           <div className="picd-sidebar-status mb-4 rounded-xl px-3 py-2.5"><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${connected ? "bg-sage" : "bg-amber"}`}/><span className="text-[11px] font-semibold">{connected ? "Backend connected" : "Backend URL missing"}</span></div><p className="mt-1 truncate text-[10px] text-paper/35">{connected ? settings.baseUrl : "Set NEXT_PUBLIC_API_BASE_URL or use login"}</p></div>
