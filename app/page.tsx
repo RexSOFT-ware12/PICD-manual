@@ -58,17 +58,21 @@ function AnimatedStat({ value }: { value: number | null }) {
 
 function DashboardSkeleton() {
   return (
-    <div className="contents">
-      <div className="mb-3 grid grid-cols-6 gap-2">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-3 grid shrink-0 grid-cols-6 gap-2">
         <div className="col-span-2 h-[78px] animate-pulse rounded-xl border border-line bg-white" />
-        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-[78px] animate-pulse rounded-xl border border-line bg-white" />)}
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-[78px] animate-pulse rounded-xl border border-line bg-white" />
+        ))}
       </div>
-      <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
+      <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto overflow-y-hidden pb-2">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="min-h-20 rounded-xl bg-ink/[0.035] p-2">
-            <div className="mb-2 h-7 w-28 animate-pulse rounded-lg bg-ink/10" />
-            <div className="space-y-2">
-              {Array.from({ length: 3 }).map((__, j) => <div key={j} className="h-24 animate-pulse rounded-xl border border-line bg-white" />)}
+          <div key={i} className="flex h-full min-h-0 min-w-[300px] flex-1 flex-col">
+            <div className="mb-2 h-7 w-28 shrink-0 animate-pulse rounded-lg bg-ink/10" />
+            <div className="flex min-h-[220px] flex-1 flex-col gap-2 rounded-xl bg-ink/[0.035] p-2">
+              {Array.from({ length: 3 }).map((__, j) => (
+                <div key={j} className="h-24 shrink-0 animate-pulse rounded-xl border border-line bg-white" />
+              ))}
             </div>
           </div>
         ))}
@@ -242,7 +246,7 @@ export default function Home() {
   };
 
   const handleTriggerNext = async () => {
-    if (triggering || stats?.processing || (stats?.queue_depth ?? 0) === 0) return;
+    if (triggering || (stats?.queue_depth ?? 0) === 0) return;
     setTriggering(true);
     setTriggerMessage(null);
     try {
@@ -262,10 +266,6 @@ export default function Home() {
     if (!scan) return;
 
     if (target === "processing" && scan.status === "queued") {
-      if (stats?.processing) {
-        setTriggerMessage("A scan is already processing. Wait for it to finish before releasing another.");
-        return;
-      }
       setMovingScan(scanId);
       setTriggerMessage(null);
       try {
@@ -366,7 +366,7 @@ export default function Home() {
               <h1 className="font-display text-xl font-semibold text-ink">Pipeline board</h1>
               <span className="hidden rounded-full bg-sage/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-sage sm:inline-flex">manual control</span>
             </div>
-            <p className="mt-1 text-[11px] text-ink/35">Desktop pipeline: Queue → Processing → Completed → Delivered. Failed runs can be returned to Queue. Delivered results are locked.</p>
+            <p className="mt-1 text-[11px] text-ink/35">Desktop pipeline: Queue → Processing → Completed → Delivered. Multiple processing workers can run in parallel. Failed runs can be returned to Queue. Delivered results are locked.</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button onClick={() => setCompact(v => !v)} className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] text-ink/55 transition hover:border-blueprint hover:text-blueprint sm:inline-flex">{compact ? "Comfortable" : "Compact"}</button>

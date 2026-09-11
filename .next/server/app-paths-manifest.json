@@ -8,8 +8,8 @@
   "/login/page": "app/login/page.js",
   "/logs/page": "app/logs/page.js",
   "/notifications/page": "app/notifications/page.js",
-  "/daz-assets/page": "app/daz-assets/page.js",
   "/workers/page": "app/workers/page.js",
+  "/daz-assets/page": "app/daz-assets/page.js",
   "/page": "app/page.js",
   "/system/page": "app/system/page.js"
 }
