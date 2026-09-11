@@ -571,6 +571,19 @@ export const fetchLogs = (s: ConnectionSettings, level="all") => request<{items:
 export const updateSystemControl = (s: ConnectionSettings, body: {paused?:boolean;maintenance?:boolean}) => postJson<SystemState>("/monitor/system/control",s,body);
 export const updateFeatures = (s: ConnectionSettings, body: Record<string,boolean>) => postJson<SystemState>("/monitor/system/features",s,body);
 export const updateSystemConfig = (s: ConnectionSettings, body: Record<string,number>) => postJson<SystemState>("/monitor/system/config",s,body);
+export type OperationalConfig = {
+  processing: { image_download_timeout_seconds:number; processing_lease_seconds:number; worker_heartbeat_seconds:number; worker_offline_after_seconds:number };
+  delivery: { http_timeout_seconds:number; max_attempts:number; retry_delays_seconds:number[]; pending_recovery_limit:number; automatic_delivery:boolean };
+  image_qc: { minimum_brightness:number; maximum_brightness:number; minimum_contrast:number; minimum_sharpness:number; minimum_edge_ratio:number; canny_low_threshold:number; canny_high_threshold:number; minimum_pose_confidence:number; minimum_landmark_visibility:number; minimum_detection_confidence:number; maximum_shoulder_tilt:number; maximum_body_off_center:number; front_horizontal_arm_warning_degrees:number; front_arm_elevation_warning_degrees:number; advisory_only:boolean };
+  file_limits: { scan_image_mb:number; daz_asset_mb:number; gam_import_mb:number; csv_import_mb:number };
+  alerts: { queue_warning_depth:number; queue_critical_depth:number; worker_offline_after_seconds:number; processing_stuck_after_seconds:number; email_queue_warnings:boolean; email_system_errors:boolean };
+  access: { invitation_expiry_hours:number; login_max_failed_attempts:number; login_lockout_seconds:number };
+  agent_runtime: { root_path:string; processed_images_dir:string; resized_images_dir:string; scans_archive_dir:string; global_vars_filename:string; photoshop_psd_dir:string; illustrator_svg_dir:string; daz_assets_dir:string; front_filename:string; side_filename:string; psd_filename:string; svg_filename:string; duf_filename:string; resize_width:number; resize_height:number };
+  data_sources: { gam_workbook:string; gam_master_csv:string; base_shapes_csv:string; apple_gam_csv:string; hour_glass_gam_csv:string };
+};
+export const fetchOperationalConfig = (s: ConnectionSettings) => request<OperationalConfig>("/monitor/system/operational-config", s);
+export const updateOperationalConfig = (s: ConnectionSettings, body: OperationalConfig | { _reset:boolean }) => postJson<OperationalConfig>("/monitor/system/operational-config", s, body);
+
 export const fetchBodyAnalyzerConfig = (s: ConnectionSettings) => request<BodyAnalyzerConfig>("/monitor/system/body-analyzer-config", s);
 export const updateBodyAnalyzerConfig = (s: ConnectionSettings, body: BodyAnalyzerConfig | { _reset: boolean }) => postJson<BodyAnalyzerConfig>("/monitor/system/body-analyzer-config", s, body);
 export const fetchClientEstimateConfig = (s: ConnectionSettings) => request<ClientEstimateConfig>("/monitor/system/client-estimate-config", s);

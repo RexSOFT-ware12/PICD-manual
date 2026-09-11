@@ -8,6 +8,8 @@ import { NOTIFICATION_SOUNDS, loadNotificationSound, playNotificationSound, save
 import {
   ApiError,
   fetchHealth,
+  fetchOperationalConfig,
+  updateOperationalConfig,
   fetchSystemState,
   fetchBodyAnalyzerConfig,
   updateBodyAnalyzerConfig,
@@ -26,6 +28,7 @@ import {
   type BodyAnalyzerConfig,
   type EmailSettings,
   type HealthResponse,
+  type OperationalConfig,
   type SystemState,
 } from "@/lib/api";
 
@@ -84,7 +87,7 @@ function EmailSidebar({ email }: { email: EmailSettings | null }) {
       <div className="flex items-center gap-2"><span className="rounded-lg bg-paper p-2 text-blueprint"><Icon name="cloud" size={17}/></span><h3 className="text-xs font-semibold">Email configuration</h3></div>
       <dl className="mt-4 space-y-3 text-[10px]">
         <div className="flex justify-between gap-4"><dt className="text-ink/40">Provider</dt><dd className="text-right font-medium">Cloudflare Email Service</dd></div>
-        <div className="flex justify-between gap-4"><dt className="text-ink/40">Domain</dt><dd className="text-right font-medium">picds-manual.com</dd></div>
+        <div className="flex justify-between gap-4"><dt className="text-ink/40">Sender domain</dt><dd className="text-right font-medium">{email?.from_email?.split("@")[1] || "—"}</dd></div>
         <div className="flex justify-between gap-4"><dt className="text-ink/40">From address</dt><dd className="max-w-[155px] truncate text-right font-medium">{email?.from_email || "alerts@picds-manual.com"}</dd></div>
         <div className="flex justify-between gap-4"><dt className="text-ink/40">Recipients</dt><dd className="font-medium">{email?.recipients.length ?? 0}</dd></div>
         <div className="flex items-center justify-between gap-4"><dt className="text-ink/40">Status</dt><dd className={`flex items-center gap-1.5 font-semibold ${email?.cloudflare_configured ? "text-sage" : "text-amber"}`}><span className="h-1.5 w-1.5 rounded-full bg-current"/>{email?.cloudflare_configured ? "Connected" : "Setup needed"}</dd></div>
@@ -114,6 +117,8 @@ export default function SystemPage() {
   const [bodyAnalyzerMessage, setBodyAnalyzerMessage] = useState<string | null>(null);
   const [estimateMessage, setEstimateMessage] = useState<string | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [operational, setOperational] = useState<OperationalConfig | null>(null);
+  const [operationalMessage, setOperationalMessage] = useState<string | null>(null);
   const [email, setEmail] = useState<EmailSettings | null>(null);
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailMessage, setEmailMessage] = useState<string | null>(null);
@@ -124,7 +129,7 @@ export default function SystemPage() {
   const [pending, setPending] = useState<{ kind: string; key?: string; value?: boolean } | null>(null);
   const [activeSection, setActiveSection] = useState("email");
   const [notificationSound, setNotificationSound] = useState<NotificationSound>("default");
-  const loading = !!settings.baseUrl && (!state || !health || !email || !clientEstimate || !bodyAnalyzer);
+  const loading = !!settings.baseUrl && (!state || !health || !email || !clientEstimate || !bodyAnalyzer || !operational);
 
   useEffect(() => { setSettings(loadSettings()); setNotificationSound(loadNotificationSound()); }, []);
 
@@ -132,8 +137,8 @@ export default function SystemPage() {
     const s = loadSettings();
     if (!s.baseUrl) return;
     try {
-      const [a, b, c, d, e] = await Promise.all([fetchSystemState(s), fetchHealth(s), fetchEmailSettings(s), fetchClientEstimateConfig(s), fetchBodyAnalyzerConfig(s)]);
-      setState(a); setHealth(b); setEmail(c); setClientEstimate(d); setBodyAnalyzer(e); setError(null);
+      const [a, b, c, d, e, f] = await Promise.all([fetchSystemState(s), fetchHealth(s), fetchEmailSettings(s), fetchClientEstimateConfig(s), fetchBodyAnalyzerConfig(s), fetchOperationalConfig(s)]);
+      setState(a); setHealth(b); setEmail(c); setClientEstimate(d); setBodyAnalyzer(e); setOperational(f); setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Could not load system settings.");
     }
@@ -152,6 +157,19 @@ export default function SystemPage() {
     if (!state) return;
     try { setState(await updateSystemConfig(loadSettings(), state.config)); }
     catch (e) { setError(e instanceof ApiError ? e.message : "Configuration update failed."); }
+  };
+
+  const saveOperational = async () => {
+    if (!operational) return;
+    setOperationalMessage(null);
+    try { setOperational(await updateOperationalConfig(loadSettings(), operational)); setOperationalMessage("Operational settings saved. New processing runs use the updated values."); }
+    catch (e) { setOperationalMessage(e instanceof ApiError ? e.message : "Could not save operational settings."); }
+  };
+
+  const resetOperational = async () => {
+    setOperationalMessage(null);
+    try { setOperational(await updateOperationalConfig(loadSettings(), { _reset: true })); setOperationalMessage("Operational defaults restored."); }
+    catch (e) { setOperationalMessage(e instanceof ApiError ? e.message : "Could not restore operational defaults."); }
   };
 
   const saveClientEstimate = async () => {
@@ -265,6 +283,7 @@ export default function SystemPage() {
             ["email", "Email Notifications"],
             ["sound", "Notification Sound"],
             ["general", "General Settings"],
+            ["operations", "Operations"],
             ["features", "Feature Flags"],
             ["estimate", "Client Estimate"],
             ["body", "Body Analyzer"],
@@ -346,6 +365,22 @@ export default function SystemPage() {
             <div id="system-general" className={`scroll-mt-5 ${activeSection !== "general" ? "hidden" : ""}`}><Card className="p-5"><div className="mb-4 flex items-start justify-between"><div><h2 className="font-display font-semibold">General settings</h2><p className="mt-1 text-xs text-ink/40">Backend connection used by the authenticated desktop dashboard.</p></div><ConnectionSettingsPanel settings={settings} status={connectionStatus} onSave={save}/></div></Card></div>
 
             <div id="system-features" className={`scroll-mt-5 ${activeSection !== "features" ? "hidden" : ""}`}><Card className="p-5"><h2 className="font-display font-semibold">Feature flags</h2><p className="mt-1 text-xs leading-5 text-ink/40">Turn optional operational capabilities on or off without editing source code. Automatic queue is OFF by default; when enabled, the next queued scan starts only after the current scan finishes.</p><div className="mt-4 grid grid-cols-2 gap-2">{state && Object.entries(state.features).map(([k, v]) => <button key={k} onClick={() => setPending({ kind: `feature:${k}`, key: k, value: !v })} className="flex items-center justify-between rounded-xl border border-line px-3 py-3 text-xs transition hover:border-blueprint/20"><span>{featureLabels[k] ?? k}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${v ? "bg-sage/10 text-sage" : "bg-ink/5 text-ink/35"}`}>{v ? "ON" : "OFF"}</span></button>)}</div></Card></div>
+
+            <div id="system-operations" className={`scroll-mt-5 ${activeSection !== "operations" ? "hidden" : ""}`}><Card className="overflow-hidden"><div className="border-b border-line px-5 py-5 flex items-start justify-between gap-5"><div><h2 className="font-display font-semibold">Operations & calibration controls</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-ink/40">Business and operational thresholds live here instead of being buried in Python. Security and implementation safeguards remain code-controlled.</p></div><div className="flex gap-2"><button onClick={resetOperational} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55">Restore defaults</button><button onClick={saveOperational} disabled={!operational} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper disabled:opacity-40">Save operations</button></div></div>{operational && <div className="p-5 space-y-6">
+              {[
+                ["Processing", [
+                  ["image_download_timeout_seconds","Image download timeout (sec)"],["processing_lease_seconds","Processing lease (sec)"],["worker_heartbeat_seconds","Worker heartbeat (sec)"],["worker_offline_after_seconds","Worker offline after (sec)"]]],
+                ["Delivery", [["http_timeout_seconds","HTTP timeout (sec)"],["max_attempts","Maximum delivery attempts"],["pending_recovery_limit","Pending recovery limit"]]],
+                ["File limits", [["scan_image_mb","Scan image limit (MB)"],["daz_asset_mb","DAZ asset limit (MB)"],["gam_import_mb","GAM import limit (MB)"],["csv_import_mb","CSV/XLSX limit (MB)"]]],
+                ["Alerts", [["queue_warning_depth","Queue warning depth"],["queue_critical_depth","Queue critical depth"],["worker_offline_after_seconds","Worker offline after (sec)"],["processing_stuck_after_seconds","Processing stuck after (sec)"]]],
+                ["Access", [["invitation_expiry_hours","Invitation expiry (hours)"],["login_max_failed_attempts","Maximum failed logins"],["login_lockout_seconds","Lockout duration (sec)"]]],
+              ].map(([title, fields]) => <div key={String(title)}><h3 className="text-xs font-semibold">{title}</h3><div className="mt-2 grid grid-cols-2 gap-3">{(fields as string[][]).map(([key,label]) => <label key={key} className="text-[11px] font-semibold text-ink/55">{label}<input type="number" min="0" step={key.includes("ratio") ? "0.01" : "1"} value={(operational as any)[title === "Processing" ? "processing" : title === "Delivery" ? "delivery" : title === "File limits" ? "file_limits" : title === "Alerts" ? "alerts" : "access"][key]} onChange={e => { const section = title === "Processing" ? "processing" : title === "Delivery" ? "delivery" : title === "File limits" ? "file_limits" : title === "Alerts" ? "alerts" : "access"; setOperational({...operational, [section]: {...(operational as any)[section], [key]: Number(e.target.value)}}); }} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 font-mono text-xs outline-none focus:border-blueprint/50"/></label>)}</div></div>)}
+              <div><h3 className="text-xs font-semibold">Image quality & pose</h3><p className="mt-1 text-[10px] text-ink/35">These remain advisory by default and can be calibrated without changing the analyzer code.</p><div className="mt-2 grid grid-cols-3 gap-3">{[["minimum_brightness","Min brightness"],["maximum_brightness","Max brightness"],["minimum_contrast","Min contrast"],["minimum_sharpness","Min sharpness"],["minimum_resolution_px","Min resolution (px)"],["minimum_edge_ratio","Min edge ratio"],["minimum_pose_confidence","Min pose confidence"],["minimum_landmark_visibility","Min landmark visibility"],["minimum_detection_confidence","Min detection confidence"],["maximum_shoulder_tilt","Max shoulder tilt"],["maximum_body_off_center","Max body off-center"],["front_horizontal_arm_warning_degrees","Arm angle warning (deg)"],["front_arm_elevation_warning_degrees","Arm elevation warning (deg)"],["canny_low_threshold","Canny low threshold"],["canny_high_threshold","Canny high threshold"]].map(([key,label]) => <label key={key} className="text-[11px] font-semibold text-ink/55">{label}<input type="number" min="0" step="0.01" value={(operational.image_qc as any)[key]} onChange={e=>setOperational({...operational,image_qc:{...operational.image_qc,[key]:Number(e.target.value)}})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 font-mono text-xs outline-none focus:border-blueprint/50"/></label>)}</div><label className="mt-3 flex items-center gap-2 text-[11px] font-semibold text-ink/55"><input type="checkbox" checked={operational.image_qc.advisory_only} onChange={e=>setOperational({...operational,image_qc:{...operational.image_qc,advisory_only:e.target.checked}})} className="h-4 w-4 accent-blueprint"/> Advisory only (recommended)</label></div>
+              <div><h3 className="text-xs font-semibold">Delivery & notification behavior</h3><label className="mt-2 block text-[11px] font-semibold text-ink/55">Retry delays (seconds)<input value={operational.delivery.retry_delays_seconds.join(", ")} onChange={e=>setOperational({...operational,delivery:{...operational.delivery,retry_delays_seconds:e.target.value.split(",").map(x=>Number(x.trim())).filter(x=>Number.isFinite(x)&&x>=0)}})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 font-mono text-xs outline-none focus:border-blueprint/50"/></label><div className="mt-2 grid grid-cols-2 gap-3"><label className="flex items-center gap-2 rounded-xl border border-line px-3 py-3 text-[11px] font-semibold"><input type="checkbox" checked={operational.delivery.automatic_delivery} onChange={e=>setOperational({...operational,delivery:{...operational.delivery,automatic_delivery:e.target.checked}})} className="h-4 w-4 accent-blueprint"/> Automatic result delivery</label><label className="flex items-center gap-2 rounded-xl border border-line px-3 py-3 text-[11px] font-semibold"><input type="checkbox" checked={operational.alerts.email_queue_warnings} onChange={e=>setOperational({...operational,alerts:{...operational.alerts,email_queue_warnings:e.target.checked}})} className="h-4 w-4 accent-blueprint"/> Email queue warnings</label><label className="flex items-center gap-2 rounded-xl border border-line px-3 py-3 text-[11px] font-semibold"><input type="checkbox" checked={operational.alerts.email_system_errors} onChange={e=>setOperational({...operational,alerts:{...operational.alerts,email_system_errors:e.target.checked}})} className="h-4 w-4 accent-blueprint"/> Email system errors</label></div></div>
+              <div><h3 className="text-xs font-semibold">Processing-agent paths & files</h3><p className="mt-1 text-[10px] text-ink/35">These values are delivered to the processing agent. Keep them aligned with the local workstation layout.</p><div className="mt-2 grid grid-cols-2 gap-3">{Object.entries(operational.agent_runtime).map(([key,value]) => <label key={key} className="text-[11px] font-semibold text-ink/55">{key.replaceAll("_"," ")}<input value={String(value)} onChange={e=>setOperational({...operational,agent_runtime:{...operational.agent_runtime,[key]: e.target.value} as any})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 font-mono text-xs outline-none focus:border-blueprint/50"/></label>)}</div></div>
+              <div><h3 className="text-xs font-semibold">Calibration data sources</h3><div className="mt-2 grid grid-cols-2 gap-3">{Object.entries(operational.data_sources).map(([key,value]) => <label key={key} className="text-[11px] font-semibold text-ink/55">{key.replaceAll("_"," ")}<input value={String(value)} onChange={e=>setOperational({...operational,data_sources:{...operational.data_sources,[key]:e.target.value}})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 font-mono text-xs outline-none focus:border-blueprint/50"/></label>)}</div></div>
+              {operationalMessage && <div className={`rounded-xl px-3 py-2 text-[11px] ${operationalMessage.includes("Could") ? "bg-brick/10 text-brick" : "bg-sage/10 text-sage"}`}>{operationalMessage}</div>}
+            </div>}</Card></div>
 
             <div id="system-estimate" className={`scroll-mt-5 ${activeSection !== "estimate" ? "hidden" : ""}`}><Card className="overflow-hidden">
               <div className="border-b border-line px-5 py-5 flex items-start justify-between gap-5"><div><h2 className="font-display font-semibold">Client estimate configuration</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-ink/40">Tune the client-estimate calculation without editing Python. These values control state thresholds, ellipse perimeter corrections, slider percentages and safety limits. Changes apply to new processing runs.</p></div><div className="flex shrink-0 gap-2"><button onClick={resetClientEstimate} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55">Restore defaults</button><button onClick={saveClientEstimate} disabled={!clientEstimate} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper disabled:opacity-40">Save estimate settings</button></div></div>
