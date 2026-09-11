@@ -482,6 +482,15 @@ export interface EmailSettings {
   cloudflare_configured?: boolean;
 }
 
+export interface ClientEstimateConfig {
+  version: number;
+  state_selection: { hw3_width_ratio_limit: number; hw2_high_hip_ratio_limit: number };
+  ellipse_adjustments: Record<string, number>;
+  slider_percentages: Record<string, number>;
+  morph_limits: { minimum_valid_percent: number; maximum_valid_percent: number; overflow_threshold: number; overflow_morph_percent: number; overflow_total_excess: number };
+  gam_fallback: number;
+}
+
 export interface SystemState { paused: boolean; maintenance: boolean; features: Record<string, boolean>; config: Record<string, number>; uptime_seconds: number; }
 export interface HealthResponse { status: string; uptime_seconds: number; queue_depth: number; processing: boolean; mongo_configured: boolean; platform: string; python: string; tools: Record<string, boolean>; cloud_mode?: boolean; processing_agent_required?: boolean; processing_agent?: { online: boolean; agent_id?: string | null; last_seen?: string | null }; }
 export interface SystemRow { at: string; level?: string; action: string; detail: string; }
@@ -520,6 +529,8 @@ export const fetchLogs = (s: ConnectionSettings, level="all") => request<{items:
 export const updateSystemControl = (s: ConnectionSettings, body: {paused?:boolean;maintenance?:boolean}) => postJson<SystemState>("/monitor/system/control",s,body);
 export const updateFeatures = (s: ConnectionSettings, body: Record<string,boolean>) => postJson<SystemState>("/monitor/system/features",s,body);
 export const updateSystemConfig = (s: ConnectionSettings, body: Record<string,number>) => postJson<SystemState>("/monitor/system/config",s,body);
+export const fetchClientEstimateConfig = (s: ConnectionSettings) => request<ClientEstimateConfig>("/monitor/system/client-estimate-config", s);
+export const updateClientEstimateConfig = (s: ConnectionSettings, body: ClientEstimateConfig | { _reset: boolean }) => postJson<ClientEstimateConfig>("/monitor/system/client-estimate-config", s, body);
 export const runDiagnostics = (s: ConnectionSettings) => postJson<{checks:{name:string;ok:boolean}[];ran_at:string}>("/monitor/system/diagnostics",s,{});
 export const fetchEmailSettings = (s: ConnectionSettings) => request<EmailSettings>("/monitor/system/email", s);
 export const saveEmailSettings = (s: ConnectionSettings, body: EmailSettings) => postJson<EmailSettings>("/monitor/system/email", s, body);

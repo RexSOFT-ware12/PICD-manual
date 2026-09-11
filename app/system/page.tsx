@@ -9,6 +9,7 @@ import {
   ApiError,
   fetchHealth,
   fetchSystemState,
+  fetchClientEstimateConfig,
   fetchEmailSettings,
   loadSettings,
   runDiagnostics,
@@ -17,7 +18,9 @@ import {
   saveSettings,
   updateFeatures,
   updateSystemConfig,
+  updateClientEstimateConfig,
   type ConnectionSettings,
+  type ClientEstimateConfig,
   type EmailSettings,
   type HealthResponse,
   type SystemState,
@@ -41,6 +44,9 @@ const configLabels: Record<string, string> = {
   illustrator_timeout_seconds: "Illustrator timeout (sec)",
   daz_timeout_seconds: "Daz timeout (sec)",
 };
+
+const estimateEllipseLabels: Record<string,string> = { chest:"Chest", bust:"Bust", upper_bust:"Upper bust", natural_waist:"Natural waist", below_waist:"Below waist", high_hip:"High hip", glute:"Glute", lower_hip:"Lower hip", thigh:"Thigh" };
+const estimateSliderLabels: Record<string,string> = { weight:"Weight", body:"Body", hw1:"HW1", leg:"Leg", thigh_thickness_depth:"Thigh thickness depth", thigh_thickness_width:"Thigh thickness width", torso_width:"Torso width", chest_width:"Chest width", abdomen_width:"Abdomen width", abdomen_size:"Abdomen size", waist_size:"Waist size", waist_shape:"Waist shape" };
 
 const events = [
   ["notify_scan_received", "New scan received", "When a new scan enters the monitor."],
@@ -100,6 +106,8 @@ function EmailSidebar({ email }: { email: EmailSettings | null }) {
 
 export default function SystemPage() {
   const [state, setState] = useState<SystemState | null>(null);
+  const [clientEstimate, setClientEstimate] = useState<ClientEstimateConfig | null>(null);
+  const [estimateMessage, setEstimateMessage] = useState<string | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [email, setEmail] = useState<EmailSettings | null>(null);
   const [emailBusy, setEmailBusy] = useState(false);
@@ -111,7 +119,7 @@ export default function SystemPage() {
   const [pending, setPending] = useState<{ kind: string; key?: string; value?: boolean } | null>(null);
   const [activeSection, setActiveSection] = useState("email");
   const [notificationSound, setNotificationSound] = useState<NotificationSound>("default");
-  const loading = !!settings.baseUrl && (!state || !health || !email);
+  const loading = !!settings.baseUrl && (!state || !health || !email || !clientEstimate);
 
   useEffect(() => { setSettings(loadSettings()); setNotificationSound(loadNotificationSound()); }, []);
 
@@ -119,8 +127,8 @@ export default function SystemPage() {
     const s = loadSettings();
     if (!s.baseUrl) return;
     try {
-      const [a, b, c] = await Promise.all([fetchSystemState(s), fetchHealth(s), fetchEmailSettings(s)]);
-      setState(a); setHealth(b); setEmail(c); setError(null);
+      const [a, b, c, d] = await Promise.all([fetchSystemState(s), fetchHealth(s), fetchEmailSettings(s), fetchClientEstimateConfig(s)]);
+      setState(a); setHealth(b); setEmail(c); setClientEstimate(d); setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Could not load system settings.");
     }
@@ -142,6 +150,23 @@ export default function SystemPage() {
     if (!state) return;
     try { setState(await updateSystemConfig(loadSettings(), state.config)); }
     catch (e) { setError(e instanceof ApiError ? e.message : "Configuration update failed."); }
+  };
+
+  const saveClientEstimate = async () => {
+    if (!clientEstimate) return;
+    setEstimateMessage(null);
+    try {
+      setClientEstimate(await updateClientEstimateConfig(loadSettings(), clientEstimate));
+      setEstimateMessage("Client estimate settings saved. New scans use the updated values.");
+    } catch (e) { setEstimateMessage(e instanceof ApiError ? e.message : "Client estimate settings failed to save."); }
+  };
+
+  const resetClientEstimate = async () => {
+    setEstimateMessage(null);
+    try {
+      setClientEstimate(await updateClientEstimateConfig(loadSettings(), { _reset: true }));
+      setEstimateMessage("Client estimate defaults restored.");
+    } catch (e) { setEstimateMessage(e instanceof ApiError ? e.message : "Could not restore client estimate defaults."); }
   };
 
   const diagnostics = async () => {
@@ -216,6 +241,7 @@ export default function SystemPage() {
             ["sound", "Notification Sound"],
             ["general", "General Settings"],
             ["features", "Feature Flags"],
+            ["estimate", "Client Estimate"],
             ["access", "Users & Access"],
             ["database", "Database"],
             ["logs", "Logs"],
@@ -294,6 +320,17 @@ export default function SystemPage() {
             <div id="system-general" className="scroll-mt-5"><Card className="p-5"><div className="mb-4 flex items-start justify-between"><div><h2 className="font-display font-semibold">General settings</h2><p className="mt-1 text-xs text-ink/40">Backend connection used by the authenticated desktop dashboard.</p></div><ConnectionSettingsPanel settings={settings} status={connectionStatus} onSave={save}/></div></Card></div>
 
             <div id="system-features" className="scroll-mt-5"><Card className="p-5"><h2 className="font-display font-semibold">Feature flags</h2><p className="mt-1 text-xs leading-5 text-ink/40">Turn optional operational capabilities on or off without editing source code. Automatic queue is OFF by default; when enabled, the next queued scan starts only after the current scan finishes.</p><div className="mt-4 grid grid-cols-2 gap-2">{state && Object.entries(state.features).map(([k, v]) => <button key={k} onClick={() => setPending({ kind: `feature:${k}`, key: k, value: !v })} className="flex items-center justify-between rounded-xl border border-line px-3 py-3 text-xs transition hover:border-blueprint/20"><span>{featureLabels[k] ?? k}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${v ? "bg-sage/10 text-sage" : "bg-ink/5 text-ink/35"}`}>{v ? "ON" : "OFF"}</span></button>)}</div></Card></div>
+
+            <div id="system-estimate" className="scroll-mt-5"><Card className="overflow-hidden">
+              <div className="border-b border-line px-5 py-5 flex items-start justify-between gap-5"><div><h2 className="font-display font-semibold">Client estimate configuration</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-ink/40">Tune the client-estimate calculation without editing Python. These values control state thresholds, ellipse perimeter corrections, slider percentages and safety limits. Changes apply to new processing runs.</p></div><div className="flex shrink-0 gap-2"><button onClick={resetClientEstimate} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55">Restore defaults</button><button onClick={saveClientEstimate} disabled={!clientEstimate} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper disabled:opacity-40">Save estimate settings</button></div></div>
+              {clientEstimate && <div className="space-y-5 px-5 py-5">
+                <div><h3 className="text-xs font-semibold">State selection thresholds</h3><p className="mt-1 text-[10px] text-ink/35">Ratios used to decide between Gen8, HW2 and HW3 families.</p><div className="mt-3 grid grid-cols-2 gap-3">{Object.entries(clientEstimate.state_selection).map(([k,v])=><label key={k} className="text-[11px] font-semibold text-ink/55">{k === "hw3_width_ratio_limit" ? "HW3 glute width / circumference limit" : "HW2 high-hip / glute-width limit"}<input type="number" step="0.01" value={v} onChange={e=>setClientEstimate({...clientEstimate,state_selection:{...clientEstimate.state_selection,[k]:Number(e.target.value)}})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 text-xs font-mono outline-none focus:border-blueprint/50"/></label>)}</div></div>
+                <div><h3 className="text-xs font-semibold">Ellipse perimeter adjustments</h3><p className="mt-1 text-[10px] text-ink/35">Multipliers applied after the ellipse perimeter estimate. 1.00 means no correction.</p><div className="mt-3 grid grid-cols-3 gap-3">{Object.entries(clientEstimate.ellipse_adjustments).map(([k,v])=><label key={k} className="text-[11px] font-semibold text-ink/55">{estimateEllipseLabels[k] ?? k}<input type="number" step="0.001" value={v} onChange={e=>setClientEstimate({...clientEstimate,ellipse_adjustments:{...clientEstimate.ellipse_adjustments,[k]:Number(e.target.value)}})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 text-xs font-mono outline-none focus:border-blueprint/50"/></label>)}</div></div>
+                <div><h3 className="text-xs font-semibold">Optimal slider percentages</h3><p className="mt-1 text-[10px] text-ink/35">Starting slider percentages used by the ClientEstimate selection stage.</p><div className="mt-3 grid grid-cols-3 gap-3">{Object.entries(clientEstimate.slider_percentages).map(([k,v])=><label key={k} className="text-[11px] font-semibold text-ink/55">{estimateSliderLabels[k] ?? k}<input type="number" step="0.001" value={v} onChange={e=>setClientEstimate({...clientEstimate,slider_percentages:{...clientEstimate.slider_percentages,[k]:Number(e.target.value)}})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 text-xs font-mono outline-none focus:border-blueprint/50"/></label>)}</div></div>
+                <div className="grid grid-cols-[1fr_1fr] gap-5"><div><h3 className="text-xs font-semibold">Morph safety limits</h3><div className="mt-3 grid grid-cols-2 gap-3">{Object.entries(clientEstimate.morph_limits).map(([k,v])=><label key={k} className="text-[11px] font-semibold text-ink/55">{k.replaceAll("_"," ")}<input type="number" step="0.001" value={v} onChange={e=>setClientEstimate({...clientEstimate,morph_limits:{...clientEstimate.morph_limits,[k]:Number(e.target.value)}})} className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 text-xs font-mono outline-none focus:border-blueprint/50"/></label>)}</div></div><div><h3 className="text-xs font-semibold">GAM fallback</h3><p className="mt-1 text-[10px] text-ink/35">Fallback value used when an active GAM circumference value is unavailable.</p><input type="number" step="1" value={clientEstimate.gam_fallback} onChange={e=>setClientEstimate({...clientEstimate,gam_fallback:Number(e.target.value)})} className="mt-3 h-10 w-full rounded-lg border border-line bg-white px-3 text-xs font-mono outline-none focus:border-blueprint/50"/></div></div>
+                {estimateMessage && <div className={`rounded-xl px-3 py-2 text-[11px] ${estimateMessage.includes("failed") || estimateMessage.includes("Could") ? "bg-brick/10 text-brick" : "bg-sage/10 text-sage"}`}>{estimateMessage}</div>}
+              </div>}
+            </Card></div>
 
             <div id="system-access" className="scroll-mt-5"><Card className="p-5"><h2 className="font-display font-semibold">Users & access</h2><p className="mt-1 text-xs text-ink/40">Admin accounts and server-side permissions are managed from the Admin accounts page.</p></Card></div>
             <div id="system-database" className="scroll-mt-5"><Card className="p-5"><h2 className="font-display font-semibold">Database</h2><p className="mt-1 text-xs text-ink/40">MongoDB powers persistent scan, alert and authentication storage. Connection secrets remain on the backend.</p></Card></div>
