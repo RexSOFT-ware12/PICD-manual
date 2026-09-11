@@ -417,7 +417,7 @@ export default function Home() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="search scan_id or user_id"
               className="w-64 rounded-full border border-line bg-white px-4 py-1.5 pr-8 text-sm text-ink outline-none transition-shadow focus:border-blueprint focus:ring-2 focus:ring-blueprint/20"
-            />
+             name="field_page_1"/>
             {search && (
               <button
                 onClick={() => setSearch("")}
@@ -455,9 +455,9 @@ export default function Home() {
           <button onClick={() => setDatePreset('custom')} className={`rounded-full px-2.5 py-1 text-[11px] transition ${datePreset === 'custom' ? 'bg-blueprint text-paper' : 'bg-ink/5 text-ink/55 hover:bg-ink/10'}`}>Custom</button>
           <button onClick={() => setShowOnlyActive(v => !v)} className={`ml-auto rounded-full px-2.5 py-1 text-[11px] transition ${showOnlyActive ? 'bg-amber text-ink shadow-sm' : 'bg-ink/5 text-ink/55 hover:bg-ink/10'}`}>{showOnlyActive ? 'Active only' : 'All statuses'}</button>
           {datePreset === 'custom' && <>
-            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="rounded-full border border-line bg-white px-2 py-1 text-[11px]" />
+            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="rounded-full border border-line bg-white px-2 py-1 text-[11px]"  name="field_page_2"/>
             <span className="text-[10px] text-ink/30">to</span>
-            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="rounded-full border border-line bg-white px-2 py-1 text-[11px]" />
+            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="rounded-full border border-line bg-white px-2 py-1 text-[11px]"  name="field_page_3"/>
           </>}
         </div>
 

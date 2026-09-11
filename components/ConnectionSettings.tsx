@@ -65,7 +65,7 @@ export default function ConnectionSettingsPanel({
             onChange={(e) => setBaseUrl(e.target.value)}
             placeholder="https://your-tunnel.trycloudflare.com"
             className="mb-3 w-full rounded border border-white/15 bg-white/5 px-2 py-1.5 font-mono text-xs text-paper outline-none focus:border-amber"
-          />
+           name="field_ConnectionSettings_1"/>
           <button
             onClick={() => {
               onSave({ baseUrl: baseUrl.trim(), apiKey: "" });

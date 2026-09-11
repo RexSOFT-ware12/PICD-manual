@@ -51,9 +51,12 @@ function cacheAdmin(admin: AuthMe) {
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  // Start identically on server and client; hydrate cached auth after mount to avoid React hydration mismatches.
-  const [admin, setAdmin] = useState<AuthMe | null>(null);
-  const [checking, setChecking] = useState(true);
+  // Keep the authenticated user in module memory across client-side route changes.
+  // The module cache is empty during the initial server render, so this remains
+  // hydration-safe while preventing the sign-in screen from flashing on every
+  // sidebar navigation. sessionStorage is only read after mount.
+  const [admin, setAdmin] = useState<AuthMe | null>(() => sessionAdminCache);
+  const [checking, setChecking] = useState(() => !sessionAdminCache);
   const [loggingOut, setLoggingOut] = useState(false);
   const [ui, setUi] = useState<UICustomization | null>(null);
   const settings = useMemo(() => loadSettings(), []);
@@ -61,13 +64,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    const cached = readCachedAdmin();
-    if (cached) setAdmin(cached);
+    const cached = sessionAdminCache ?? readCachedAdmin();
+    if (cached) {
+      setAdmin(cached);
+      setChecking(false);
+    }
     if (!settings.baseUrl) { setChecking(false); router.replace("/login"); return; }
-    // Do not render protected child pages from a stale session cache. We still use the
-    // cache for the sidebar identity once the real session has been revalidated, but
-    // waiting here prevents a burst of 401 requests (and avoids rendering pages with
-    // undefined API data) when the HttpOnly session has expired or been cleared.
+    // On client-side route changes, keep rendering from the already-authenticated
+    // module cache and validate the HttpOnly session silently in the background.
+    // On a fresh load there is no module cache, so we wait for the real session check.
     fetchCurrentAdmin(settings).then((me) => {
       if (!cancelled) { cacheAdmin(me); setAdmin(me); setChecking(false); }
     }).catch((error) => {
