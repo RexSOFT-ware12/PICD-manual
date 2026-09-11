@@ -117,7 +117,7 @@ function EmailSidebar({ email }: { email: EmailSettings | null }) {
   </aside>;
 }
 
-export default function SystemPage() {
+export default function SystemPage({ section = "overview" }: { section?: string }) {
   const router = useRouter();
   const [state, setState] = useState<SystemState | null>(null);
   const [clientEstimate, setClientEstimate] = useState<ClientEstimateConfig | null>(null);
@@ -139,12 +139,6 @@ export default function SystemPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ kind: string; key?: string; value?: boolean } | null>(null);
-  const [activeSection, setActiveSection] = useState("overview");
-  useEffect(() => {
-    const requested = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("section") : null;
-    const allowed = new Set(["overview","email","sound","operations","features","estimate","body","global","appearance","general","access","database","logs"]);
-    setActiveSection(requested && allowed.has(requested) ? requested : "overview");
-  }, []);
   const [notificationSound, setNotificationSound] = useState<NotificationSound>("default");
   const loading = !!settings.baseUrl && (!state || !health || !email || !clientEstimate || !bodyAnalyzer || !operational || !globalVariables || !uiCustomization);
 
@@ -179,7 +173,7 @@ export default function SystemPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const selectSection = (id: string) => { setActiveSection(id); router.replace(`/system?section=${id}`); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const selectSection = (id: string) => { router.push(id === "overview" ? "/system" : `/system/${id}`); };
 
   const control = async (k: string, v: boolean) => {
     try { setState(await updateFeatures(loadSettings(), { [k]: v })); }
@@ -346,10 +340,10 @@ export default function SystemPage() {
 
 
   const renderActiveSection = () => {
-    switch (activeSection) {
+    switch (section) {
       case "email": return (<>
 <Card className="overflow-hidden">
-              <div id="system-email" className={`scroll-mt-5 ${activeSection !== "email" ? "hidden" : ""} border-b border-line px-5 py-5`}>
+              <div id="system-email" className="scroll-mt-5 border-b border-line px-5 py-5">
                 <div className="flex items-start justify-between gap-5">
                   <div className="flex min-w-0 items-start gap-3">
                     <div className="rounded-xl bg-[#e7f1ff] p-2.5 text-blueprint"><Icon name="mail" size={22}/></div>
@@ -417,7 +411,7 @@ export default function SystemPage() {
       </>);
       case "general": return (<>
 <div id="system-general" className="scroll-mt-5"><Card className="p-5"><div className="mb-4 flex items-start justify-between"><div><h2 className="font-display font-semibold">General settings</h2><p className="mt-1 text-xs text-ink/40">Backend connection used by the authenticated desktop dashboard.</p></div><ConnectionSettingsPanel settings={settings} status={connectionStatus} onSave={save}/></div></Card></div>
-<div className={activeSection === "general" ? "" : "hidden"}><Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="font-display font-semibold">Runtime configuration</h2><p className="mt-1 text-xs text-ink/40">Safe runtime settings. Secrets and source code remain protected.</p></div><button onClick={() => setPending({ kind: "config" })} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper">Save</button></div><div className="mt-4 grid grid-cols-2 gap-3">{state && Object.entries(state.config).map(([k, v]) => <label key={k} className="text-xs text-ink/55">{configLabels[k] ?? k}<input type="number" min="0" value={v} onChange={e => setState({ ...state, config: { ...state.config, [k]: Number(e.target.value) } })} className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2 font-mono text-xs outline-none focus:border-blueprint" name="field_page_39"/></label>)}</div></Card></div>
+<div><Card className="p-5"><div className="flex items-center justify-between"><div><h2 className="font-display font-semibold">Runtime configuration</h2><p className="mt-1 text-xs text-ink/40">Safe runtime settings. Secrets and source code remain protected.</p></div><button onClick={() => setPending({ kind: "config" })} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper">Save</button></div><div className="mt-4 grid grid-cols-2 gap-3">{state && Object.entries(state.config).map(([k, v]) => <label key={k} className="text-xs text-ink/55">{configLabels[k] ?? k}<input type="number" min="0" value={v} onChange={e => setState({ ...state, config: { ...state.config, [k]: Number(e.target.value) } })} className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2 font-mono text-xs outline-none focus:border-blueprint" name="field_page_39"/></label>)}</div></Card></div>
       </>);
       case "global": return (<>
 <div id="system-global" className="scroll-mt-5"><Card className="overflow-hidden"><div className="border-b border-line px-5 py-5 flex items-start justify-between gap-5"><div><h2 className="font-display font-semibold">Global Variables</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-ink/40">Manage variable definitions and display labels without changing code. Values remain specific to each client/scan and are not stored in this admin configuration.</p></div><div className="flex gap-2"><button onClick={resetGlobalVariables} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55">Reload</button><button onClick={saveGlobalVariables} disabled={!globalVariables} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper disabled:opacity-40">Save labels</button></div></div>{globalVariables && <div className="p-5"><div className="mb-4 rounded-xl border border-blueprint/15 bg-blueprint/5 px-4 py-3 text-[10px] leading-4 text-ink/55"><strong className="text-blueprint">Important:</strong> The <b>Key</b> stays stable. <b>Display label</b> is admin wording only. <b>DAZ property / slider</b> tells the DAZ script what to set, and aliases provide fallbacks. Adding a new variable here does not change client values; the client-specific value is still produced by the processing pipeline.</div><div className="space-y-2">{globalVariables.variables.map((v, i) => <div key={v.key} className="grid grid-cols-[28px_1fr_1.25fr_1.25fr_1.25fr_90px_1.5fr_80px] gap-2 items-center rounded-xl border border-line bg-paper/40 p-2"><span className="text-center text-[10px] font-mono text-ink/25">{i+1}</span><input value={v.key} disabled className="rounded-lg border border-line bg-white px-2.5 py-2 font-mono text-[10px] text-ink/45" name="field_page_6"/><input value={v.label} onChange={e => setGlobalVariables({...globalVariables, variables: globalVariables.variables.map(x => x.key === v.key ? {...x, label:e.target.value} : x)})} placeholder="Display label" className="rounded-lg border border-line bg-white px-2.5 py-2 text-xs outline-none focus:border-blueprint" name="field_page_7"/><input value={v.daz_property ?? v.source_label ?? v.label} onChange={e => setGlobalVariables({...globalVariables, variables: globalVariables.variables.map(x => x.key === v.key ? {...x, daz_property:e.target.value, source_label:e.target.value} : x)})} placeholder="DAZ property / slider" className="rounded-lg border border-line bg-white px-2.5 py-2 text-xs outline-none focus:border-blueprint" name="field_page_8"/><input value={(v.daz_aliases ?? []).join(", ")} onChange={e => setGlobalVariables({...globalVariables, variables: globalVariables.variables.map(x => x.key === v.key ? {...x, daz_aliases:e.target.value.split(",").map(a=>a.trim()).filter(Boolean)} : x)})} placeholder="DAZ aliases, comma separated" className="rounded-lg border border-line bg-white px-2.5 py-2 text-xs outline-none focus:border-blueprint" name="field_page_9"/><input value={v.unit} onChange={e => setGlobalVariables({...globalVariables, variables: globalVariables.variables.map(x => x.key === v.key ? {...x, unit:e.target.value} : x)})} placeholder="Unit" className="rounded-lg border border-line bg-white px-2.5 py-2 text-xs outline-none focus:border-blueprint" name="field_page_10"/><input value={v.description} onChange={e => setGlobalVariables({...globalVariables, variables: globalVariables.variables.map(x => x.key === v.key ? {...x, description:e.target.value} : x)})} placeholder="Description" className="rounded-lg border border-line bg-white px-2.5 py-2 text-xs outline-none focus:border-blueprint" name="field_page_11"/><button onClick={() => setGlobalVariables({...globalVariables, variables: globalVariables.variables.map(x => x.key === v.key ? {...x, active:!x.active} : x)})} className={`rounded-lg px-2 py-2 text-[10px] font-semibold ${v.active ? "bg-sage/10 text-sage" : "bg-ink/5 text-ink/35"}`}>{v.active ? "Active" : "Off"}</button></div>)}</div><div className="mt-4 flex items-center gap-2"><button onClick={() => { const n = globalVariables.variables.length + 1; const base = `custom_variable_${n}`; setGlobalVariables({...globalVariables, variables:[...globalVariables.variables, {key:base,label:"New Variable",source_label:"",daz_property:"",daz_aliases:[],unit:"",description:"",active:true,order:n}]}); }} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/60">+ Add variable</button><span className="text-[10px] text-ink/35">{globalVariables.variables.filter(v=>v.active).length} active · {globalVariables.variables.length} total</span></div>{globalVariablesMessage && <p className="mt-3 text-xs text-sage">{globalVariablesMessage}</p>}</div>}</Card></div>
@@ -562,7 +556,7 @@ export default function SystemPage() {
         <div className="min-w-0">
         {loading ? <div className="space-y-4">{Array.from({length:4}).map((_,i)=><div key={i} className="animate-pulse rounded-2xl border border-line bg-white p-6"><div className="h-5 w-48 rounded bg-ink/[.06]"/><div className="mt-3 h-3 w-80 rounded bg-ink/[.04]"/><div className="mt-6 grid grid-cols-2 gap-3"><div className="h-10 rounded-lg bg-ink/[.035]"/><div className="h-10 rounded-lg bg-ink/[.035]"/></div><div className="mt-4 h-20 rounded-xl bg-ink/[.035]"/></div>)}</div> : <div className="min-w-0 space-y-4">
                         {renderActiveSection()}
-<p className={`pb-5 text-[10px] text-ink/30 ${activeSection === "general" ? "" : "hidden"}`}>Platform: {health?.platform ?? "—"} · Python: {health?.python ?? "—"} · Mongo configured: {health?.mongo_configured ? "yes" : "no"}</p>
+<p className="pb-5 text-[10px] text-ink/30">Platform: {health?.platform ?? "—"} · Python: {health?.python ?? "—"} · Mongo configured: {health?.mongo_configured ? "yes" : "no"}</p>
           </div>}
         </div>
       </div>

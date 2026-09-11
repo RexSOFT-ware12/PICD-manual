@@ -1,8 +1,8 @@
-// File: /Users/user/Documents/GitHub/PICD-manual/app/system/page.tsx
-import * as entry from '../../../../app/system/page.js'
+// File: /Users/user/Documents/GitHub/PICD-manual/app/system/logs/page.tsx
+import * as entry from '../../../../../app/system/logs/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
-type TEntry = typeof import('../../../../app/system/page.js')
+type TEntry = typeof import('../../../../../app/system/logs/page.js')
 
 // Check that the entry is a valid entry
 checkFields<Diff<{
