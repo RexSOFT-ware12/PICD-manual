@@ -51,8 +51,9 @@ function cacheAdmin(admin: AuthMe) {
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [admin, setAdmin] = useState<AuthMe | null>(() => readCachedAdmin());
-  const [, setChecking] = useState(() => !readCachedAdmin());
+  // Start identically on server and client; hydrate cached auth after mount to avoid React hydration mismatches.
+  const [admin, setAdmin] = useState<AuthMe | null>(null);
+  const [, setChecking] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [ui, setUi] = useState<UICustomization | null>(null);
   const settings = useMemo(() => loadSettings(), []);
@@ -60,6 +61,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    const cached = readCachedAdmin();
+    if (cached) setAdmin(cached);
     if (!settings.baseUrl) { setChecking(false); router.replace("/login"); return; }
     // Revalidate silently in the background. Cached session data keeps navigation instant.
     fetchCurrentAdmin(settings).then((me) => {
