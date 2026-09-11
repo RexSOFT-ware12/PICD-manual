@@ -1,24 +1,24 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { fetchCurrentAdmin, loadSettings, logoutAdmin, type AuthMe } from "@/lib/api";
+import { fetchCurrentAdmin, fetchUICustomization, loadSettings, logoutAdmin, type AuthMe, type UICustomization } from "@/lib/api";
 import NotificationCenter from "@/components/NotificationCenter";
 
-const nav = [
-  { href: "/", label: "Dashboard", icon: "▦", section: "Monitor", permission: "scans.read" },
-  { href: "/analytics", label: "Analytics", icon: "◒", section: "Monitor", permission: "analytics.read" },
-  { href: "/notifications", label: "Notifications", icon: "♢", section: "Monitor", permission: "alerts.read" },
-  { href: "/workers", label: "Workers", icon: "⚙", section: "Control", permission: "workers.read" },
-  { href: "/logs", label: "System logs", icon: "≡", section: "Control", permission: "logs.read" },
-  { href: "/audit", label: "Audit logs", icon: "✓", section: "Control", permission: "audit.read" },
-  { href: "/gam", label: "GAM", icon: "◇", section: "Control", permission: "gam.read" },
-  { href: "/csv-import", label: "CSV importer", icon: "⇅", section: "Control", permission: "csv.read" },
-  { href: "/daz-assets", label: "Daz Assets", icon: "◈", section: "Control", permission: "daz.read" },
-  { href: "/system", label: "System settings", icon: "⌘", section: "Admin", permission: "system.read" },
-  { href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage" },
+const defaultNav = [
+  { id:"dashboard", href: "/", label: "Dashboard", icon: "▦", section: "Monitor", permission: "scans.read", visible:true, order:1 },
+  { id:"analytics", href: "/analytics", label: "Analytics", icon: "◒", section: "Monitor", permission: "analytics.read", visible:true, order:2 },
+  { id:"notifications", href: "/notifications", label: "Notifications", icon: "♢", section: "Monitor", permission: "alerts.read", visible:true, order:3 },
+  { id:"workers", href: "/workers", label: "Workers", icon: "⚙", section: "Control", permission: "workers.read", visible:true, order:4 },
+  { id:"logs", href: "/logs", label: "System logs", icon: "≡", section: "Control", permission: "logs.read", visible:true, order:5 },
+  { id:"audit", href: "/audit", label: "Audit logs", icon: "✓", section: "Control", permission: "audit.read", visible:true, order:6 },
+  { id:"gam", href: "/gam", label: "GAM", icon: "◇", section: "Control", permission: "gam.read", visible:true, order:7 },
+  { id:"csv-import", href: "/csv-import", label: "CSV importer", icon: "⇅", section: "Control", permission: "csv.read", visible:true, order:8 },
+  { id:"daz-assets", href: "/daz-assets", label: "Daz Assets", icon: "◈", section: "Control", permission: "daz.read", visible:true, order:9 },
+  { id:"system", href: "/system", label: "System settings", icon: "⌘", section: "Admin", permission: "system.read", visible:true, order:10 },
+  { id:"admins", href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage", visible:true, order:11 },
 ];
 
 let sessionAdminCache: AuthMe | null = null;
@@ -54,6 +54,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [admin, setAdmin] = useState<AuthMe | null>(() => readCachedAdmin());
   const [, setChecking] = useState(() => !readCachedAdmin());
   const [loggingOut, setLoggingOut] = useState(false);
+  const [ui, setUi] = useState<UICustomization | null>(null);
   const settings = useMemo(() => loadSettings(), []);
   const connected = !!settings.baseUrl;
 
@@ -77,12 +78,20 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [router, settings]);
 
+  useEffect(() => {
+    if (!admin || !settings.baseUrl) return;
+    fetchUICustomization(settings).then(setUi).catch(() => {});
+  }, [admin, settings]);
+
+  const navigation = (ui?.navigation?.length ? ui.navigation : defaultNav).slice().sort((a,b) => a.order - b.order);
+  const theme = ui?.theme;
+
   if (!admin) {
     return <div className="flex h-screen items-center justify-center bg-paper"><div className="rounded-2xl border border-line bg-white px-7 py-6 text-center shadow-sm"><div className="mx-auto mb-3 h-2.5 w-2.5 animate-pulse rounded-full bg-blueprint"/><p className="font-display text-sm font-semibold">Signing you in…</p><p className="mt-1 text-xs text-ink/40">Preparing your dashboard</p></div></div>;
   }
 
   const can = (permission: string) => admin.is_super_admin || admin.permissions.includes(permission) || (permission === "admins.manage" && admin.is_super_admin);
-  const visibleNav = nav.filter((item) => can(item.permission));
+  const visibleNav = navigation.filter((item) => item.visible !== false && can(item.permission));
   let lastSection = "";
 
   const signOut = async () => {
@@ -97,17 +106,17 @@ export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <>
       <div className="mobile-unavailable" role="status" aria-live="polite"><div className="mobile-unavailable-card"><p className="mobile-unavailable-kicker">PICD Scan Queue Monitor</p><h1>Desktop dashboard only</h1><p>This monitoring dashboard is designed for desktop screens and is not available on mobile devices.</p></div></div>
-      <div className="desktop-dashboard flex h-screen min-h-0 overflow-hidden bg-paper">
-        <aside className="flex h-full w-[248px] shrink-0 flex-col border-r border-white/10 bg-blueprint px-4 py-5 text-paper shadow-2xl shadow-blueprint/10">
-          <Link href="/" className="mb-7 block px-3"><p className="font-display text-lg font-semibold leading-tight">Scan Queue<br/>Monitor</p><p className="mt-1 text-xs text-paper/45">PICD measurement pipeline</p></Link>
-          <div className="mb-3 flex items-center justify-between gap-2 px-1"><span className="text-[9px] font-bold uppercase tracking-[.18em] text-paper/25">Live center</span><NotificationCenter/></div>
-          <div className="mb-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5"><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${connected ? "bg-sage" : "bg-amber"}`}/><span className="text-[11px] font-semibold">{connected ? "Backend connected" : "Backend URL missing"}</span></div><p className="mt-1 truncate text-[10px] text-paper/35">{connected ? settings.baseUrl : "Set NEXT_PUBLIC_API_BASE_URL or use login"}</p></div>
-          <div className="mb-4 rounded-xl border border-white/10 bg-white/[.035] px-3 py-2.5"><p className="text-[9px] uppercase tracking-[.16em] text-paper/30">Signed in</p><div className="mt-1 flex items-center justify-between gap-2"><span className="truncate text-[11px] font-semibold">{admin.username}</span>{admin.is_super_admin && <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-paper/60">Super admin</span>}</div></div>
-          <nav className="flex-1 overflow-y-auto scrollbar-thin">{visibleNav.map(item => { const heading=item.section!==lastSection; lastSection=item.section; const active=pathname===item.href || (item.href!=="/" && pathname.startsWith(item.href)); return <div key={item.href}>{heading&&<p className="mb-2 mt-4 px-3 text-[9px] font-bold uppercase tracking-[.18em] text-paper/25">{item.section}</p>}<Link href={item.href} className={`mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition ${active?"bg-paper text-blueprint shadow-sm":"text-paper/55 hover:bg-white/7 hover:text-paper"}`}><span className="w-4 text-center text-sm opacity-80">{item.icon}</span><span>{item.label}</span>{active&&<span className="ml-auto h-1.5 w-1.5 rounded-full bg-blueprint"/>}</Link></div>; })}</nav>
-          <button onClick={signOut} disabled={loggingOut} className="mt-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-left text-[11px] font-semibold text-paper/65 transition hover:bg-white/10 hover:text-paper disabled:opacity-50">{loggingOut ? "Signing out…" : "Sign out"}</button>
-          <div className="mt-3 border-t border-white/10 pt-4 px-3"><p className="text-[9px] uppercase tracking-[.18em] text-paper/25">PICD Control Center</p><p className="mt-1 text-[10px] leading-relaxed text-paper/35">Protected by server-side authentication and role-based permissions.</p></div>
+      <div className="desktop-dashboard picd-theme-root flex h-screen min-h-0 overflow-hidden" style={{"--picd-page-bg": theme?.page.background, "--picd-page-surface": theme?.page.surface, "--picd-page-border": theme?.page.border, "--picd-page-text": theme?.page.text, "--picd-page-muted": theme?.page.muted_text, "--picd-page-accent": theme?.page.accent, "--picd-success": theme?.page.success, "--picd-warning": theme?.page.warning, "--picd-error": theme?.page.error, "--picd-sidebar-bg": theme?.sidebar.background, "--picd-sidebar-text": theme?.sidebar.text, "--picd-sidebar-muted": theme?.sidebar.muted_text, "--picd-sidebar-section": theme?.sidebar.section_text, "--picd-sidebar-active-bg": theme?.sidebar.active_background, "--picd-sidebar-active-text": theme?.sidebar.active_text, "--picd-sidebar-hover": theme?.sidebar.hover_background, "--picd-sidebar-border": theme?.sidebar.border, "--picd-sidebar-width": `${theme?.sidebar.width_px ?? 248}px` } as CSSProperties}>
+        <aside className="picd-sidebar flex h-full shrink-0 flex-col px-4 py-5" style={{width:`${theme?.sidebar.width_px ?? 248}px`}}>
+          <Link href="/" className="picd-sidebar-brand mb-7 block px-3"><p className="font-display text-lg font-semibold leading-tight">Scan Queue<br/>Monitor</p><p className="mt-1 text-xs text-paper/45">PICD measurement pipeline</p></Link>
+          <div className="picd-sidebar-live mb-3 flex items-center justify-between gap-2 px-1"><span className="text-[9px] font-bold uppercase tracking-[.18em] text-paper/25">Live center</span><NotificationCenter/></div>
+          <div className="picd-sidebar-status mb-4 rounded-xl px-3 py-2.5"><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${connected ? "bg-sage" : "bg-amber"}`}/><span className="text-[11px] font-semibold">{connected ? "Backend connected" : "Backend URL missing"}</span></div><p className="mt-1 truncate text-[10px] text-paper/35">{connected ? settings.baseUrl : "Set NEXT_PUBLIC_API_BASE_URL or use login"}</p></div>
+          <div className="picd-sidebar-signed mb-4 rounded-xl px-3 py-2.5"><p className="text-[9px] uppercase tracking-[.16em] text-paper/30">Signed in</p><div className="mt-1 flex items-center justify-between gap-2"><span className="truncate text-[11px] font-semibold">{admin.username}</span>{admin.is_super_admin && <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-paper/60">Super admin</span>}</div></div>
+          <nav className="flex-1 overflow-y-auto scrollbar-thin">{visibleNav.map(item => { const heading=item.section!==lastSection; lastSection=item.section; const active=pathname===item.href || (item.href!=="/" && pathname.startsWith(item.href)); return <div key={item.href}>{heading&&<p className="picd-sidebar-section mb-2 mt-4 px-3 text-[9px] font-bold uppercase tracking-[.18em]">{item.section}</p>}<Link href={item.href} className={`picd-sidebar-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition ${active?"is-active":""}`}><span className="w-4 text-center text-sm opacity-80">{item.icon}</span><span>{item.label}</span>{active&&<span className="ml-auto h-1.5 w-1.5 rounded-full bg-blueprint"/>}</Link></div>; })}</nav>
+          <button onClick={signOut} disabled={loggingOut} className="picd-sidebar-signout mt-4 rounded-xl px-3 py-2.5 text-left text-[11px] font-semibold transition disabled:opacity-50">{loggingOut ? "Signing out…" : "Sign out"}</button>
+          <div className="picd-sidebar-footer mt-3 border-t pt-4 px-3"><p className="text-[9px] uppercase tracking-[.18em] text-paper/25">PICD Control Center</p><p className="mt-1 text-[10px] leading-relaxed text-paper/35">Protected by server-side authentication and role-based permissions.</p></div>
         </aside>
-        <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
+        <main className="picd-main min-w-0 flex-1 overflow-hidden">{children}</main>
       </div>
     </>
   );

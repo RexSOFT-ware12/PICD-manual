@@ -591,6 +591,11 @@ export const updateOperationalConfig = (s: ConnectionSettings, body: Operational
 export type GlobalVariableDefinition = { key:string; label:string; source_label?:string; daz_property?:string; daz_aliases?:string[]; unit:string; description:string; active:boolean; order:number };
 export type GlobalVariablesConfig = { version:number; variables:GlobalVariableDefinition[] };
 export const fetchGlobalVariables = (s: ConnectionSettings) => request<GlobalVariablesConfig>("/monitor/system/global-variables", s);
+export type UICustomizationNavItem = { id:string; href:string; label:string; icon:string; section:string; permission:string; visible:boolean; order:number };
+export type UICustomization = { version:number; navigation:UICustomizationNavItem[]; theme:{ sidebar:{background:string;text:string;muted_text:string;section_text:string;active_background:string;active_text:string;hover_background:string;border:string;width_px:number}; page:{background:string;surface:string;border:string;text:string;muted_text:string;accent:string;success:string;warning:string;error:string}; layout:{density:"compact"|"comfortable";sidebar_shadow:boolean} } };
+export const fetchUICustomization = (s: ConnectionSettings) => request<UICustomization>("/monitor/system/ui-customization", s);
+export const updateUICustomization = (s: ConnectionSettings, body: UICustomization | { _reset:boolean }) => postJson<UICustomization>("/monitor/system/ui-customization", s, body);
+
 export const updateGlobalVariables = (s: ConnectionSettings, body: GlobalVariablesConfig) => postJson<GlobalVariablesConfig>("/monitor/system/global-variables", s, body);
 
 export const fetchBodyAnalyzerConfig = (s: ConnectionSettings) => request<BodyAnalyzerConfig>("/monitor/system/body-analyzer-config", s);

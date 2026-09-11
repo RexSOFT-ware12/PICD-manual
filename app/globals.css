@@ -147,3 +147,25 @@ button:focus-visible, input:focus-visible, [role="button"]:focus-visible {
 .notification-ring { animation: notificationRing 0.8s ease-in-out 1; }
 
 @keyframes scan-sweep { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(380%); } }
+
+/* Admin-configurable navigation and application theme. Values are supplied by AppShell from MongoDB. */
+.picd-theme-root { background: var(--picd-page-bg, #f3f2ed); color: var(--picd-page-text, #1b2430); }
+.picd-sidebar { background: var(--picd-sidebar-bg, #243a55); color: var(--picd-sidebar-text, #f3f2ed); border-right: 1px solid var(--picd-sidebar-border, rgba(255,255,255,.1)); box-shadow: 18px 0 50px rgba(31,58,95,.10); }
+.picd-sidebar-brand { color: var(--picd-sidebar-text, #f3f2ed); }
+.picd-sidebar-brand p:last-child { color: var(--picd-sidebar-muted, rgba(243,242,237,.55)); }
+.picd-sidebar-live, .picd-sidebar-live span:first-child, .picd-sidebar-section, .picd-sidebar-footer p:first-child { color: var(--picd-sidebar-section, rgba(243,242,237,.28)); }
+.picd-sidebar-status, .picd-sidebar-signed { border: 1px solid var(--picd-sidebar-border, rgba(255,255,255,.1)); background: rgba(255,255,255,.05); }
+.picd-sidebar-status p, .picd-sidebar-signed p { color: var(--picd-sidebar-muted, rgba(243,242,237,.55)); }
+.picd-sidebar-status span, .picd-sidebar-signed span { color: var(--picd-sidebar-text, #f3f2ed); }
+.picd-sidebar-link { color: var(--picd-sidebar-muted, rgba(243,242,237,.55)); }
+.picd-sidebar-link:hover { background: var(--picd-sidebar-hover, rgba(255,255,255,.07)); color: var(--picd-sidebar-text, #f3f2ed); }
+.picd-sidebar-link.is-active { background: var(--picd-sidebar-active-bg, #f3f2ed); color: var(--picd-sidebar-active-text, #243a55); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.picd-sidebar-link.is-active .picd-sidebar-dot { background: var(--picd-sidebar-active-text, #243a55); }
+.picd-sidebar-signout { border: 1px solid var(--picd-sidebar-border, rgba(255,255,255,.1)); background: rgba(255,255,255,.05); color: var(--picd-sidebar-muted, rgba(243,242,237,.55)); }
+.picd-sidebar-signout:hover { background: rgba(255,255,255,.1); color: var(--picd-sidebar-text, #f3f2ed); }
+.picd-sidebar-footer { border-color: var(--picd-sidebar-border, rgba(255,255,255,.1)); }
+.picd-sidebar-footer p:last-child { color: var(--picd-sidebar-muted, rgba(243,242,237,.55)); }
+.picd-main { background: var(--picd-page-bg, #f3f2ed); }
+.picd-theme-root .bg-white { background-color: var(--picd-page-surface, #fff); }
+.picd-theme-root .bg-paper { background-color: var(--picd-page-bg, #f3f2ed); }
+.picd-theme-root .border-line { border-color: var(--picd-page-border, #dad7cc); }
