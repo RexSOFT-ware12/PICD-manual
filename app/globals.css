@@ -145,3 +145,5 @@ button:focus-visible, input:focus-visible, [role="button"]:focus-visible {
   60% { transform: rotate(-7deg) scale(1.01); }
 }
 .notification-ring { animation: notificationRing 0.8s ease-in-out 1; }
+
+@keyframes scan-sweep { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(380%); } }

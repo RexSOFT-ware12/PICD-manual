@@ -113,6 +113,28 @@ export default function ScanCard({ scan, style, onRetried, onMoved, draggable = 
         </div>
       </div>
       {(frontSrc || sideSrc) && <div className={`${compact ? "mb-1.5" : "mb-2"} flex gap-1.5`}>{frontSrc && <Thumb src={frontSrc} alt="front" />}{sideSrc && <Thumb src={sideSrc} alt="side" />}</div>}
+      {scan.image_analysis && (() => {
+        const a = scan.image_analysis;
+        const front = a.card?.front;
+        const side = a.card?.side;
+        const warnings = a.issues?.length ?? 0;
+        const analyzing = a.status === "analyzing";
+        const state = analyzing ? "analyzing" : a.status === "error" ? "error" : warnings > 0 || a.status === "warning" ? "warning" : "ok";
+        const stateClass = state === "ok" ? "bg-sage/10 text-sage" : state === "warning" ? "bg-amber/10 text-amber" : state === "error" ? "bg-brick/10 text-brick" : "bg-blueprint/10 text-blueprint";
+        const angle = (v?: number | null) => v == null ? "—" : `${Math.round(v)}°`;
+        const stageLabel = a.stage === "storing_images" ? "saving images" : a.stage === "analyzing_front" ? "checking front" : a.stage === "analyzing_side" ? "checking side" : a.stage === "complete" ? "complete" : "preparing";
+        const progress = Math.max(0, Math.min(100, Number(a.progress ?? 0)));
+        return <div className={`relative mb-2 overflow-hidden rounded-md border px-2 py-1.5 ${analyzing ? "border-blueprint/20 bg-blueprint/[0.035]" : "border-line/70 bg-ink/[0.025]"}`}>
+          {analyzing && <div className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -translate-x-full bg-blueprint/[0.08] animate-[scan-sweep_1.4s_ease-in-out_infinite]" />}
+          <div className="relative flex items-center gap-1.5">
+            {analyzing && <span className="h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-blueprint/20 border-t-blueprint" />}
+            <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider ${stateClass}`}>{analyzing ? "Analyzing images" : "Image QC"}</span>
+            <span className="text-[9px] text-ink/40">{analyzing ? stageLabel : warnings ? `${warnings} warning${warnings === 1 ? "" : "s"}` : "ready"}</span>
+            {!analyzing && <><span className="ml-auto text-[9px] font-mono text-ink/45">F {angle(front?.left_arm_deg)} / {angle(front?.right_arm_deg)}</span><span className="text-[9px] font-mono text-ink/45">S {angle(side?.left_arm_deg)} / {angle(side?.right_arm_deg)}</span></>}
+          </div>
+          {analyzing ? <div className="relative mt-1.5 flex items-center gap-2"><div className="h-1 flex-1 overflow-hidden rounded-full bg-blueprint/10"><div className="h-full rounded-full bg-blueprint/60 transition-[width] duration-500" style={{ width: `${progress}%` }} /></div><span className="w-7 text-right font-mono text-[8px] text-blueprint/60">{progress}%</span></div> : warnings > 0 && <p className="relative mt-1 truncate text-[9px] text-amber">{a.issues?.[0]}</p>}
+        </div>;
+      })()}
       <div className="flex items-center justify-between gap-2 text-xs"><span className="truncate text-ink/70">{scan.user_id ?? "unknown user"}</span>{scan.gender && <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/50">{scan.gender}</span>}</div>
       {scan.status === "failed" && scan.error && <p className="mt-2 line-clamp-2 break-words rounded bg-brick/10 px-2 py-1 text-[11px] text-brick">{scan.error}</p>}
       {scan.status === "completed" && scan.daz_template && <p className="mt-2 truncate font-mono text-[10px] text-sage">{scan.daz_template}</p>}

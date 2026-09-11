@@ -1,6 +1,27 @@
 export type ScanStatus = "queued" | "processing" | "completed" | "failed";
 export type DeliveryStatus = "pending" | "sending" | "delivered" | "failed" | "not_configured";
 
+export interface ImageAnalysisSummary {
+  status: "ok" | "warning" | "error" | "analyzing";
+  sharpness?: number | null;
+  brightness?: number | null;
+  resolution?: string | null;
+  left_arm_deg?: number | null;
+  right_arm_deg?: number | null;
+  pose_confidence?: number | null;
+  issues?: string[];
+}
+
+export interface ImageAnalysis {
+  version?: number;
+  status?: "ok" | "warning" | "error" | "analyzing";
+  stage?: string;
+  progress?: number;
+  issues?: string[];
+  card?: { front?: ImageAnalysisSummary; side?: ImageAnalysisSummary };
+  images?: Record<string, unknown>;
+}
+
 export interface ScanSummary {
   scan_id: string;
   user_id: string | null;
@@ -30,6 +51,7 @@ export interface ScanSummary {
   delivery_error?: string | null;
   delivery_attempts?: number;
   has_stored_images?: boolean;
+  image_analysis?: ImageAnalysis | null;
   processing_started_at?: string | null;
   completed_at?: string | null;
   failed_at?: string | null;
@@ -453,7 +475,12 @@ export async function reorderScan(settings: ConnectionSettings, scanId: string, 
   const params = beforeScanId ? `?before_scan_id=${encodeURIComponent(beforeScanId)}` : "";
   const url = `${settings.baseUrl.replace(/\/$/, "")}/monitor/scans/${encodeURIComponent(scanId)}/reorder${params}`;
   try {
-    const res = await fetch(url, { method: "POST", headers: settings.apiKey ? { "X-API-Key": settings.apiKey } : undefined, cache: "no-store" });
+    const res = await fetch(url, {
+      method: "POST",
+      headers: authHeaders(settings.apiKey ? { "X-API-Key": settings.apiKey } : {}),
+      credentials: "include",
+      cache: "no-store",
+    });
     if (!res.ok) {
       let detail = `Backend returned ${res.status}`;
       try { const body = await res.json(); if (typeof body?.detail === "string") detail = body.detail; } catch {}

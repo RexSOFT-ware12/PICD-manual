@@ -70,3 +70,29 @@ export function playNotificationSound(kind: "incoming" | "completed" | "delivere
     // Browser audio permissions/autoplay policy can block sound; visual alerts still work.
   }
 }
+
+export function playCardMoveSound(selected: NotificationSound = loadNotificationSound()) {
+  if (selected === "silent") return;
+  try {
+    const ctx = createContext();
+    if (!ctx) return;
+    const now = ctx.currentTime + 0.01;
+    if (selected === "default") {
+      tone(ctx, 520, now, 0.07, "sine", 0.055);
+      tone(ctx, 740, now + 0.065, 0.10, "sine", 0.045);
+    } else if (selected === "chime") {
+      tone(ctx, 620, now, 0.12, "sine", 0.06);
+      tone(ctx, 780, now + 0.08, 0.15, "sine", 0.05);
+    } else if (selected === "bell") {
+      tone(ctx, 700, now, 0.18, "sine", 0.055);
+    } else if (selected === "ping") {
+      tone(ctx, 760, now, 0.10, "sine", 0.06);
+    } else {
+      tone(ctx, 540, now, 0.08, "square", 0.045);
+      tone(ctx, 680, now + 0.07, 0.10, "square", 0.04);
+    }
+    window.setTimeout(() => void ctx.close(), 600);
+  } catch {
+    // Drag/drop itself is visual feedback; audio is best-effort.
+  }
+}

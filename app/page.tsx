@@ -27,6 +27,7 @@ import ConnectionSettingsPanel, {
 import Column from "@/components/Column";
 import AppShell from "@/components/AppShell";
 import ConfirmModal from "@/components/ConfirmModal";
+import { loadNotificationSound, playCardMoveSound } from "@/lib/notificationSound";
 
 type BoardStatus = ScanStatus | "delivered";
 const STATUS_ORDER: { key: BoardStatus; label: string }[] = [
@@ -131,6 +132,9 @@ export default function Home() {
   // request instead of just ignoring its response.
   const requestIdRef = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const boardStateRef = useRef<Map<string, string>>(new Map());
+  const boardInitializedRef = useRef(false);
+  const recentMoveRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     setSettings(loadSettings());
@@ -186,6 +190,24 @@ export default function Home() {
       // one was in flight — if so, drop this result on the floor.
       if (requestId !== requestIdRef.current) return;
 
+      const nextBoardState = new Map(scansRes.scans.map((scan) => [scan.scan_id, `${scan.status}:${scan.delivery_status ?? ""}`]));
+      if (boardInitializedRef.current) {
+        let moved = false;
+        const nowMs = Date.now();
+        for (const [scanId, nextState] of nextBoardState) {
+          const prevState = boardStateRef.current.get(scanId);
+          if (prevState && prevState !== nextState) {
+            const locallyMovedAt = recentMoveRef.current.get(scanId) ?? 0;
+            if (nowMs - locallyMovedAt > 3000) moved = true;
+          }
+        }
+        for (const [scanId, at] of recentMoveRef.current) {
+          if (nowMs - at > 10000) recentMoveRef.current.delete(scanId);
+        }
+        if (moved) playCardMoveSound(loadNotificationSound());
+      }
+      boardStateRef.current = nextBoardState;
+      boardInitializedRef.current = true;
       setStats(statsRes);
       setHealth(healthRes);
       setScans(scansRes.scans);
@@ -270,6 +292,8 @@ export default function Home() {
       setTriggerMessage(null);
       try {
         const result = await processSelectedScan(settings, scanId);
+        recentMoveRef.current.set(scanId, Date.now());
+        playCardMoveSound(loadNotificationSound());
         setTriggerMessage(result.message ?? `Released ${scanId.slice(0, 8)}… for processing`);
         await refresh(settings);
       } catch (e) {
@@ -284,6 +308,8 @@ export default function Home() {
     setTriggerMessage(null);
     try {
       const result = await moveScanToQueue(settings, scanId);
+      recentMoveRef.current.set(scanId, Date.now());
+      playCardMoveSound(loadNotificationSound());
       setTriggerMessage(result.message ?? `Moved ${scanId.slice(0, 8)}… back to the manual queue`);
       await refresh(settings);
     } catch (e) {
@@ -297,6 +323,8 @@ export default function Home() {
     setMovingScan(scanId);
     try {
       await reorderScan(settings, scanId, beforeScanId);
+      recentMoveRef.current.set(scanId, Date.now());
+      playCardMoveSound(loadNotificationSound());
       setScans((current) => {
         const sourceItem = current.find((s) => s.scan_id === scanId);
         if (!sourceItem) return current;
