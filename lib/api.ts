@@ -43,6 +43,10 @@ export interface ScanSummary {
       waist_cm?: number | null; hips_cm?: number | null; shoulder_width_cm?: number | null; inseam_cm?: number | null;
     } | null;
     daz_model?: { template: string; sliders: Record<string, number> } | null;
+    global_variables?: {
+      Measurements?: Array<{ label?: string | null; value?: number | string | null; [key: string]: unknown }>;
+      [key: string]: unknown;
+    } | null;
     source_svg_key?: string | null;
     error?: string | null;
   } | null;
@@ -583,6 +587,11 @@ export type OperationalConfig = {
 };
 export const fetchOperationalConfig = (s: ConnectionSettings) => request<OperationalConfig>("/monitor/system/operational-config", s);
 export const updateOperationalConfig = (s: ConnectionSettings, body: OperationalConfig | { _reset:boolean }) => postJson<OperationalConfig>("/monitor/system/operational-config", s, body);
+
+export type GlobalVariableDefinition = { key:string; label:string; source_label?:string; daz_property?:string; daz_aliases?:string[]; unit:string; description:string; active:boolean; order:number };
+export type GlobalVariablesConfig = { version:number; variables:GlobalVariableDefinition[] };
+export const fetchGlobalVariables = (s: ConnectionSettings) => request<GlobalVariablesConfig>("/monitor/system/global-variables", s);
+export const updateGlobalVariables = (s: ConnectionSettings, body: GlobalVariablesConfig) => postJson<GlobalVariablesConfig>("/monitor/system/global-variables", s, body);
 
 export const fetchBodyAnalyzerConfig = (s: ConnectionSettings) => request<BodyAnalyzerConfig>("/monitor/system/body-analyzer-config", s);
 export const updateBodyAnalyzerConfig = (s: ConnectionSettings, body: BodyAnalyzerConfig | { _reset: boolean }) => postJson<BodyAnalyzerConfig>("/monitor/system/body-analyzer-config", s, body);

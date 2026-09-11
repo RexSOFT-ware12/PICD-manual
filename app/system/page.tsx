@@ -23,6 +23,8 @@ import {
   updateFeatures,
   updateSystemConfig,
   updateClientEstimateConfig,
+  fetchGlobalVariables,
+  updateGlobalVariables,
   type ConnectionSettings,
   type ClientEstimateConfig,
   type BodyAnalyzerConfig,
@@ -30,6 +32,7 @@ import {
   type HealthResponse,
   type OperationalConfig,
   type SystemState,
+  type GlobalVariablesConfig,
 } from "@/lib/api";
 
 const featureLabels: Record<string, string> = {
@@ -118,6 +121,8 @@ export default function SystemPage() {
   const [estimateMessage, setEstimateMessage] = useState<string | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [operational, setOperational] = useState<OperationalConfig | null>(null);
+  const [globalVariables, setGlobalVariables] = useState<GlobalVariablesConfig | null>(null);
+  const [globalVariablesMessage, setGlobalVariablesMessage] = useState<string | null>(null);
   const [operationalMessage, setOperationalMessage] = useState<string | null>(null);
   const [email, setEmail] = useState<EmailSettings | null>(null);
   const [emailBusy, setEmailBusy] = useState(false);
@@ -129,7 +134,7 @@ export default function SystemPage() {
   const [pending, setPending] = useState<{ kind: string; key?: string; value?: boolean } | null>(null);
   const [activeSection, setActiveSection] = useState("email");
   const [notificationSound, setNotificationSound] = useState<NotificationSound>("default");
-  const loading = !!settings.baseUrl && (!state || !health || !email || !clientEstimate || !bodyAnalyzer || !operational);
+  const loading = !!settings.baseUrl && (!state || !health || !email || !clientEstimate || !bodyAnalyzer || !operational || !globalVariables);
 
   useEffect(() => { setSettings(loadSettings()); setNotificationSound(loadNotificationSound()); }, []);
 
@@ -137,8 +142,8 @@ export default function SystemPage() {
     const s = loadSettings();
     if (!s.baseUrl) return;
     try {
-      const [a, b, c, d, e, f] = await Promise.all([fetchSystemState(s), fetchHealth(s), fetchEmailSettings(s), fetchClientEstimateConfig(s), fetchBodyAnalyzerConfig(s), fetchOperationalConfig(s)]);
-      setState(a); setHealth(b); setEmail(c); setClientEstimate(d); setBodyAnalyzer(e); setOperational(f); setError(null);
+      const [a, b, c, d, e, f, g] = await Promise.all([fetchSystemState(s), fetchHealth(s), fetchEmailSettings(s), fetchClientEstimateConfig(s), fetchBodyAnalyzerConfig(s), fetchOperationalConfig(s), fetchGlobalVariables(s)]);
+      setState(a); setHealth(b); setEmail(c); setClientEstimate(d); setBodyAnalyzer(e); setOperational(f); setGlobalVariables(g); setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Could not load system settings.");
     }
@@ -170,6 +175,25 @@ export default function SystemPage() {
     setOperationalMessage(null);
     try { setOperational(await updateOperationalConfig(loadSettings(), { _reset: true })); setOperationalMessage("Operational defaults restored."); }
     catch (e) { setOperationalMessage(e instanceof ApiError ? e.message : "Could not restore operational defaults."); }
+  };
+
+  const saveGlobalVariables = async () => {
+    if (!globalVariables) return;
+    setGlobalVariablesMessage(null);
+    try {
+      const variables = globalVariables.variables.map((v, i) => ({ ...v, order: i + 1 }));
+      setGlobalVariables(await updateGlobalVariables(loadSettings(), { ...globalVariables, variables }));
+      setGlobalVariablesMessage("Global variable labels saved. Client-specific values are unchanged.");
+    } catch (e) { setGlobalVariablesMessage(e instanceof ApiError ? e.message : "Could not save global variable definitions."); }
+  };
+
+  const resetGlobalVariables = async () => {
+    setGlobalVariablesMessage(null);
+    try {
+      const fresh = await fetchGlobalVariables(loadSettings());
+      setGlobalVariables(fresh);
+      setGlobalVariablesMessage("Global variable definitions reloaded from the backend.");
+    } catch (e) { setGlobalVariablesMessage(e instanceof ApiError ? e.message : "Could not reload global variable definitions."); }
   };
 
   const saveClientEstimate = async () => {
@@ -284,6 +308,7 @@ export default function SystemPage() {
             ["sound", "Notification Sound"],
             ["general", "General Settings"],
             ["operations", "Operations"],
+            ["global", "Global Variables"],
             ["features", "Feature Flags"],
             ["estimate", "Client Estimate"],
             ["body", "Body Analyzer"],
@@ -364,7 +389,7 @@ export default function SystemPage() {
 
             <div id="system-general" className={`scroll-mt-5 ${activeSection !== "general" ? "hidden" : ""}`}><Card className="p-5"><div className="mb-4 flex items-start justify-between"><div><h2 className="font-display font-semibold">General settings</h2><p className="mt-1 text-xs text-ink/40">Backend connection used by the authenticated desktop dashboard.</p></div><ConnectionSettingsPanel settings={settings} status={connectionStatus} onSave={save}/></div></Card></div>
 
-            <div id="system-features" className={`scroll-mt-5 ${activeSection !== "features" ? "hidden" : ""}`}><Card className="p-5"><h2 className="font-display font-semibold">Feature flags</h2><p className="mt-1 text-xs leading-5 text-ink/40">Turn optional operational capabilities on or off without editing source code. Automatic queue is OFF by default; when enabled, the next queued scan starts only after the current scan finishes.</p><div className="mt-4 grid grid-cols-2 gap-2">{state && Object.entries(state.features).map(([k, v]) => <button key={k} onClick={() => setPending({ kind: `feature:${k}`, key: k, value: !v })} className="flex items-center justify-between rounded-xl border border-line px-3 py-3 text-xs transition hover:border-blueprint/20"><span>{featureLabels[k] ?? k}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${v ? "bg-sage/10 text-sage" : "bg-ink/5 text-ink/35"}`}>{v ? "ON" : "OFF"}</span></button>)}</div></Card></div>
+            <div id="system-global" className={`scroll-mt-5 ${activeSection !== "global" ? "hidden" : ""}`}><Card className="overflow-hidden"><div className="border-b border-line px-5 py-5 flex items-start justify-between gap-5"><div><h2 className="font-display font-semibold">Global Variables</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-ink/40">Manage variable definitions and display labels without changing code. Values remain specific to each client/scan and are not stored in this admin configuration.</p></div><div className="flex gap-2"><button onClick={resetGlobalVariables} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55">Reload</button><button onClick={saveGlobalVariables} disabled={!globalVariables} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper disabled:opacity-40">Save labels</button></div></div>{globalVariables && <div className="p-5"><div className="mb-4 rounded-xl border border-blueprint/15 bg-blueprint/5 px-4 py-3 text-[10px] leading-4 text-ink/55"><strong className="text-blueprint">Important:</strong> The <b>Key</b> stays stable. <b>Display label</b> is admin wording only. <b>DAZ property / slider</b> tells the DAZ script what to set, and aliases provide fallbacks. Adding a new variable here does not change client values; the client-specific value is still produced by the processing pipeline.</div><div className="space-y-2">{globalVariables.variables.map((v, i) => <div key={v.key} className="grid grid-cols-[28px_1fr_1.25fr_1.25fr_1.25fr_90px_1.5fr_80px] gap-2 items-center rounded-xl border border-line bg-paper/40 p-2"><span className="text-center text-[10px] font-mono text-ink/25">{i+1}</span><input value={v.key} disabled className="rounded-lg border border-line bg-white px-2.5 py-2 font-mono text-[10px] text-ink/45"/><input value={v.label} onChange={e => setGlobalVariables({...globalVariables, variables: globalVariables.variables.map(x => x.key === v.key ? {...x, label:e.target.value} : x)})} placeholder="Display label" className="rounded-lg border border-line bg-white px-2.5 py-2 text-xs outline-none focus:border-blueprint"/><input value={v.daz_property ?? v.source_label ?? v.label} onChange={e => setGlobalVariables({...globalVariables, variables: globalVariables.variables.map(x => x.key === v.key ? {...x, daz_property:e.target.value, source_label:e.target.value} : x)})} placeholder="DAZ property / slider" className="rounded-lg border border-line bg-white px-2.5 py-2 text-xs outline-none focus:border-blueprint"/><input value={(v.daz_aliases ?? []).join(", ")} onChange={e => setGlobalVariables({...globalVariables, variables: globalVariables.variables.map(x => x.key === v.key ? {...x, daz_aliases:e.target.value.split(",").map(a=>a.trim()).filter(Boolean)} : x)})} placeholder="DAZ aliases, comma separated" className="rounded-lg border border-line bg-white px-2.5 py-2 text-xs outline-none focus:border-blueprint"/><input value={v.unit} onChange={e => setGlobalVariables({...globalVariables, variables: globalVariables.variables.map(x => x.key === v.key ? {...x, unit:e.target.value} : x)})} placeholder="Unit" className="rounded-lg border border-line bg-white px-2.5 py-2 text-xs outline-none focus:border-blueprint"/><input value={v.description} onChange={e => setGlobalVariables({...globalVariables, variables: globalVariables.variables.map(x => x.key === v.key ? {...x, description:e.target.value} : x)})} placeholder="Description" className="rounded-lg border border-line bg-white px-2.5 py-2 text-xs outline-none focus:border-blueprint"/><button onClick={() => setGlobalVariables({...globalVariables, variables: globalVariables.variables.map(x => x.key === v.key ? {...x, active:!x.active} : x)})} className={`rounded-lg px-2 py-2 text-[10px] font-semibold ${v.active ? "bg-sage/10 text-sage" : "bg-ink/5 text-ink/35"}`}>{v.active ? "Active" : "Off"}</button></div>)}</div><div className="mt-4 flex items-center gap-2"><button onClick={() => { const n = globalVariables.variables.length + 1; const base = `custom_variable_${n}`; setGlobalVariables({...globalVariables, variables:[...globalVariables.variables, {key:base,label:"New Variable",source_label:"",daz_property:"",daz_aliases:[],unit:"",description:"",active:true,order:n}]}); }} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/60">+ Add variable</button><span className="text-[10px] text-ink/35">{globalVariables.variables.filter(v=>v.active).length} active · {globalVariables.variables.length} total</span></div>{globalVariablesMessage && <p className="mt-3 text-xs text-sage">{globalVariablesMessage}</p>}</div>}</Card></div><div id="system-features" className={`scroll-mt-5 ${activeSection !== "features" ? "hidden" : ""}`}><Card className="p-5"><h2 className="font-display font-semibold">Feature flags</h2><p className="mt-1 text-xs leading-5 text-ink/40">Turn optional operational capabilities on or off without editing source code. Automatic queue is OFF by default; when enabled, the next queued scan starts only after the current scan finishes.</p><div className="mt-4 grid grid-cols-2 gap-2">{state && Object.entries(state.features).map(([k, v]) => <button key={k} onClick={() => setPending({ kind: `feature:${k}`, key: k, value: !v })} className="flex items-center justify-between rounded-xl border border-line px-3 py-3 text-xs transition hover:border-blueprint/20"><span>{featureLabels[k] ?? k}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${v ? "bg-sage/10 text-sage" : "bg-ink/5 text-ink/35"}`}>{v ? "ON" : "OFF"}</span></button>)}</div></Card></div>
 
             <div id="system-operations" className={`scroll-mt-5 ${activeSection !== "operations" ? "hidden" : ""}`}><Card className="overflow-hidden"><div className="border-b border-line px-5 py-5 flex items-start justify-between gap-5"><div><h2 className="font-display font-semibold">Operations & calibration controls</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-ink/40">Business and operational thresholds live here instead of being buried in Python. Security and implementation safeguards remain code-controlled.</p></div><div className="flex gap-2"><button onClick={resetOperational} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55">Restore defaults</button><button onClick={saveOperational} disabled={!operational} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper disabled:opacity-40">Save operations</button></div></div>{operational && <div className="p-5 space-y-6">
               {[

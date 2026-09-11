@@ -265,6 +265,15 @@ export default function ScanDetailModal({
           </section>
         )}
 
+        {scan.result?.global_variables && (
+          <div className="mb-4 rounded-xl border border-line bg-white p-4">
+            <div className="mb-3"><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">Global variables snapshot</p><p className="mt-0.5 text-xs text-ink/45">The client-specific globalVars.json captured from this processing run.</p></div>
+            <div className="grid grid-cols-2 gap-x-5 gap-y-1.5">
+              {(scan.result.global_variables.Measurements || []).filter(x => x && x.label).map((x, i) => <Row key={`${x.label}-${i}`} label={String(x.label)} value={x.value === null || x.value === undefined ? "—" : String(x.value)} />)}
+            </div>
+          </div>
+        )}
+
         {scan.result?.daz_model && (
           <section className="mt-3 rounded-xl border border-line bg-white/55 p-4">
             <div className="mb-3"><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">DAZ result</p></div>
