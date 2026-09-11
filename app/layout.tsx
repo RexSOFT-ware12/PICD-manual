@@ -21,8 +21,8 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Scan Queue Monitor",
-  description: "Live status of the photo-to-avatar measurement pipeline",
+  title: "PICDs",
+  description: "PICDs measurement pipeline control center",
 };
 
 export default function RootLayout({
