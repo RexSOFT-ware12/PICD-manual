@@ -140,6 +140,33 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   const can = (permission: string) => admin.is_super_admin || admin.permissions.includes(permission) || (permission === "admins.manage" && admin.is_super_admin);
   const visibleNav = navigation.filter((item) => item.visible !== false && can(item.permission));
+  const settingsItems = [
+    { id: "email", label: "Email notifications", icon: "✉", permission: "system.read" },
+    { id: "sound", label: "Notification sound", icon: "♪", permission: "system.read" },
+    { id: "operations", label: "Operations", icon: "◌", permission: "system.read" },
+    { id: "features", label: "Feature flags", icon: "⚑", permission: "system.read" },
+    { id: "estimate", label: "Client Estimate", icon: "◇", permission: "system.read" },
+    { id: "body", label: "Body Analyzer", icon: "◉", permission: "system.read" },
+    { id: "global", label: "Global Variables", icon: "⌁", permission: "system.read" },
+    { id: "appearance", label: "Appearance & Navigation", icon: "▤", permission: "system.read" },
+    { id: "general", label: "Connection & Runtime", icon: "⚙", permission: "system.read" },
+    { id: "access", label: "Users & Access", icon: "♙", permission: "system.read" },
+    { id: "database", label: "Database", icon: "▥", permission: "system.read" },
+    { id: "logs", label: "Diagnostics & Logs", icon: "≡", permission: "system.read" },
+  ];
+  const settingsOpen = pathname === "/system";
+  // Avoid useSearchParams in the shared shell so every route can be statically prerendered.
+  // The query string is only needed for highlighting a nested settings item.
+  const [activeSetting, setActiveSetting] = useState("overview");
+  useEffect(() => {
+    if (!settingsOpen) { setActiveSetting("overview"); return; }
+    try {
+      setActiveSetting(new URLSearchParams(window.location.search).get("section") || "overview");
+    } catch {
+      setActiveSetting("overview");
+    }
+  }, [settingsOpen, pathname]);
+  const regularNav = visibleNav.filter(item => item.id !== "system");
   let lastSection = "";
 
   const signOut = async () => {
@@ -160,7 +187,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <div className="picd-sidebar-live mb-3 flex items-center justify-between gap-2 px-1"><span className="text-[9px] font-bold uppercase tracking-[.18em] text-paper/25">Live center</span><NotificationCenter/></div>
           <div className="picd-sidebar-status mb-4 rounded-xl px-3 py-2.5"><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${connected ? "bg-sage" : "bg-amber"}`}/><span className="text-[11px] font-semibold">{connected ? "Backend connected" : "Backend URL missing"}</span></div><p className="mt-1 truncate text-[10px] text-paper/35">{connected ? settings.baseUrl : "Set NEXT_PUBLIC_API_BASE_URL or use login"}</p></div>
           <div className="picd-sidebar-signed mb-4 rounded-xl px-3 py-2.5"><p className="text-[9px] uppercase tracking-[.16em] text-paper/30">Signed in</p><div className="mt-1 flex items-center justify-between gap-2"><span className="truncate text-[11px] font-semibold">{admin.username}</span>{admin.is_super_admin && <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-paper/60">Super admin</span>}</div></div>
-          <nav className="flex-1 overflow-y-auto scrollbar-thin">{visibleNav.map(item => { const heading=item.section!==lastSection; lastSection=item.section; const active=pathname===item.href || (item.href!=="/" && pathname.startsWith(item.href)); return <div key={item.href}>{heading&&<p className="picd-sidebar-section mb-2 mt-4 px-3 text-[9px] font-bold uppercase tracking-[.18em]">{item.section}</p>}<Link href={item.href} className={`picd-sidebar-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition ${active?"is-active":""}`}><span className="w-4 text-center text-sm opacity-80">{item.icon}</span><span>{item.label}</span>{active&&<span className="ml-auto h-1.5 w-1.5 rounded-full bg-blueprint"/>}</Link></div>; })}</nav>
+          <nav className="flex-1 overflow-y-auto scrollbar-thin">{regularNav.map(item => { const heading=item.section!==lastSection; lastSection=item.section; const active=pathname===item.href || (item.href!=="/" && pathname.startsWith(item.href)); return <div key={item.href}>{heading&&<p className="picd-sidebar-section mb-2 mt-4 px-3 text-[9px] font-bold uppercase tracking-[.18em]">{item.section}</p>}<Link href={item.href} className={`picd-sidebar-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition ${active?"is-active":""}`}><span className="w-4 text-center text-sm opacity-80">{item.icon}</span><span>{item.label}</span>{active&&<span className="ml-auto h-1.5 w-1.5 rounded-full bg-blueprint"/>}</Link></div>; })}{can("system.read") && <div className="mt-4"><p className="picd-sidebar-section mb-2 px-3 text-[9px] font-bold uppercase tracking-[.18em]">Settings</p><div className="space-y-2">{[["Notifications",settingsItems.filter(x=>["email","sound"].includes(x.id))],["Processing",settingsItems.filter(x=>["operations","features","estimate","body","global"].includes(x.id))],["Workspace",settingsItems.filter(x=>["appearance","general"].includes(x.id))],["Access & Data",settingsItems.filter(x=>["access","database"].includes(x.id))],["Diagnostics",settingsItems.filter(x=>x.id==="logs")]].map(([group,items]) => <div key={String(group)}><p className="px-3 pb-1 text-[8px] font-bold uppercase tracking-[.13em] text-paper/25">{String(group)}</p><div>{(items as typeof settingsItems).map(x => <Link key={x.id} href={`/system?section=${x.id}`} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-medium transition ${settingsOpen && activeSetting === x.id ? "bg-white/10 text-white" : "text-paper/45 hover:bg-white/[.06] hover:text-paper/80"}`}><span className="w-4 text-center text-[12px] opacity-80">{x.icon}</span><span>{x.label}</span>{settingsOpen && activeSetting === x.id && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-blueprint"/>}</Link>)}</div></div>)}</div></div>}</nav>
           <button onClick={signOut} disabled={loggingOut} className="picd-sidebar-signout mt-4 rounded-xl px-3 py-2.5 text-left text-[11px] font-semibold transition disabled:opacity-50">{loggingOut ? "Signing out…" : "Sign out"}</button>
           <div className="picd-sidebar-footer mt-3 border-t pt-4 px-3"><p className="text-[9px] uppercase tracking-[.18em] text-paper/25">PICD Control Center</p><p className="mt-1 text-[10px] leading-relaxed text-paper/35">Protected by server-side authentication and role-based permissions.</p></div>
         </aside>

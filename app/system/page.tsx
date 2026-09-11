@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import ConnectionSettingsPanel, { type ConnectionStatus } from "@/components/ConnectionSettings";
 import ConfirmModal from "@/components/ConfirmModal";
@@ -117,6 +118,7 @@ function EmailSidebar({ email }: { email: EmailSettings | null }) {
 }
 
 export default function SystemPage() {
+  const router = useRouter();
   const [state, setState] = useState<SystemState | null>(null);
   const [clientEstimate, setClientEstimate] = useState<ClientEstimateConfig | null>(null);
   const [bodyAnalyzer, setBodyAnalyzer] = useState<BodyAnalyzerConfig | null>(null);
@@ -138,6 +140,11 @@ export default function SystemPage() {
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ kind: string; key?: string; value?: boolean } | null>(null);
   const [activeSection, setActiveSection] = useState("overview");
+  useEffect(() => {
+    const requested = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("section") : null;
+    const allowed = new Set(["overview","email","sound","operations","features","estimate","body","global","appearance","general","access","database","logs"]);
+    setActiveSection(requested && allowed.has(requested) ? requested : "overview");
+  }, []);
   const [notificationSound, setNotificationSound] = useState<NotificationSound>("default");
   const loading = !!settings.baseUrl && (!state || !health || !email || !clientEstimate || !bodyAnalyzer || !operational || !globalVariables || !uiCustomization);
 
@@ -172,7 +179,7 @@ export default function SystemPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const selectSection = (id: string) => { setActiveSection(id); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const selectSection = (id: string) => { setActiveSection(id); router.replace(`/system?section=${id}`); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
   const control = async (k: string, v: boolean) => {
     try { setState(await updateFeatures(loadSettings(), { [k]: v })); }
@@ -419,7 +426,69 @@ export default function SystemPage() {
 <div id="system-features" className="scroll-mt-5"><Card className="p-5"><h2 className="font-display font-semibold">Feature flags</h2><p className="mt-1 text-xs leading-5 text-ink/40">Turn optional operational capabilities on or off without editing source code. Automatic queue is OFF by default; when enabled, the next queued scan starts only after the current scan finishes.</p><div className="mt-4 grid grid-cols-2 gap-2">{state && Object.entries(state.features || {}).map(([k, v]) => <button key={k} onClick={() => setPending({ kind: `feature:${k}`, key: k, value: !v })} className="flex items-center justify-between rounded-xl border border-line px-3 py-3 text-xs transition hover:border-blueprint/20"><span>{featureLabels[k] ?? k}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${v ? "bg-sage/10 text-sage" : "bg-ink/5 text-ink/35"}`}>{v ? "ON" : "OFF"}</span></button>)}</div></Card></div>
       </>);
       case "appearance": return (<>
-<div id="system-appearance" className="scroll-mt-5"><Card className="overflow-hidden"><div className="border-b border-line px-5 py-5 flex items-start justify-between gap-5"><div><h2 className="font-display font-semibold">Appearance & Navigation</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-ink/40">Customize the sidebar, page colors and navigation labels without changing code. Routes and RBAC permissions remain protected.</p></div><div className="flex gap-2"><button onClick={resetUiCustomization} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55">Restore defaults</button><button onClick={saveUiCustomization} disabled={!uiCustomization} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper disabled:opacity-40">Save appearance</button></div></div>{uiCustomization && <div className="p-5 space-y-6"><div><div className="mb-3"><h3 className="text-xs font-semibold">Sidebar pages</h3><p className="mt-1 text-[10px] text-ink/40">Rename labels, move pages between sections, change icons, hide pages, and reorder the menu. Permissions and routes cannot be changed here.</p></div><div className="space-y-2">{uiCustomization.navigation.filter(item => !!item && typeof item.id === "string").slice().sort((a,b)=>Number(a.order||0)-Number(b.order||0)).map((item,i)=><div key={item.id} className="grid grid-cols-[28px_1fr_1.1fr_90px_72px_64px] gap-2 items-center rounded-xl border border-line bg-paper/40 p-2"><div className="text-center font-mono text-[10px] text-ink/25">{i+1}</div><input value={item.label} onChange={e=>setUiCustomization({...uiCustomization,navigation:uiCustomization.navigation.map(x=>x.id===item.id?{...x,label:e.target.value}:x)})} className="rounded-lg border border-line bg-white px-2.5 py-2 text-xs outline-none focus:border-blueprint" name="field_page_12"/><input value={item.section} onChange={e=>setUiCustomization({...uiCustomization,navigation:uiCustomization.navigation.map(x=>x.id===item.id?{...x,section:e.target.value}:x)})} className="rounded-lg border border-line bg-white px-2.5 py-2 text-xs outline-none focus:border-blueprint" name="field_page_13"/><input value={item.icon} onChange={e=>setUiCustomization({...uiCustomization,navigation:uiCustomization.navigation.map(x=>x.id===item.id?{...x,icon:e.target.value.slice(0,2)}:x)})} className="rounded-lg border border-line bg-white px-2.5 py-2 text-center text-sm outline-none focus:border-blueprint" name="field_page_14"/><div className="flex gap-1"><button onClick={()=>moveUiNav(i,-1)} className="rounded-lg border border-line bg-white px-2 py-2 text-[10px]">↑</button><button onClick={()=>moveUiNav(i,1)} className="rounded-lg border border-line bg-white px-2 py-2 text-[10px]">↓</button></div><button onClick={()=>setUiCustomization({...uiCustomization,navigation:uiCustomization.navigation.map(x=>x.id===item.id?{...x,visible:!x.visible}:x)})} className={`rounded-lg px-2 py-2 text-[10px] font-semibold ${item.visible?"bg-sage/10 text-sage":"bg-ink/5 text-ink/35"}`}>{item.visible?"Shown":"Hidden"}</button><div className="text-[9px] text-ink/30">{item.permission}</div></div>)}</div></div><div><div className="mb-3"><h3 className="text-xs font-semibold">Colors & layout</h3><p className="mt-1 text-[10px] text-ink/40">Use hex colors for solid colors; rgba() is also accepted for translucent text and hover colors.</p></div><div className="grid grid-cols-2 gap-3">{([...["sidebar","background","Sidebar background"],["sidebar","text","Sidebar text"],["sidebar","active_background","Active page background"],["sidebar","active_text","Active page text"],["sidebar","hover_background","Sidebar hover"],["page","background","Page background"],["page","surface","Card/surface"],["page","border","Borders"],["page","text","Page text"],["page","accent","Primary accent"],["page","success","Success"],["page","warning","Warning"],["page","error","Error"]] as string[][]).map(([group,key,label])=><label key={`${group}.${key}`} className="text-[10px] font-semibold text-ink/50">{label}<input value={(uiCustomization.theme as any)[group][key]} onChange={e=>setUiCustomization({...uiCustomization,theme:{...uiCustomization.theme,[group]:{...(uiCustomization.theme as any)[group],[key]:e.target.value}}})} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-mono text-[11px] outline-none focus:border-blueprint" name="field_page_15"/></label>)}</div><div className="mt-3 grid grid-cols-3 gap-3"><label className="text-[10px] font-semibold text-ink/50">Sidebar width (px)<input type="number" min={200} max={420} value={uiCustomization.theme.sidebar.width_px} onChange={e=>setUiCustomization({...uiCustomization,theme:{...uiCustomization.theme,sidebar:{...uiCustomization.theme.sidebar,width_px:Number(e.target.value)}}})} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-xs" name="field_page_16"/></label><label className="text-[10px] font-semibold text-ink/50">Density<select value={uiCustomization.theme.layout.density} onChange={e=>setUiCustomization({...uiCustomization,theme:{...uiCustomization.theme,layout:{...uiCustomization.theme.layout,density:e.target.value as "compact"|"comfortable"}}})} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-xs" name="field_page_17"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label><label className="flex items-center gap-2 pt-5 text-[10px] font-semibold text-ink/50"><input type="checkbox" checked={uiCustomization.theme.layout.sidebar_shadow} onChange={e=>setUiCustomization({...uiCustomization,theme:{...uiCustomization.theme,layout:{...uiCustomization.theme.layout,sidebar_shadow:e.target.checked}}})} name="field_page_18"/> Sidebar shadow</label></div></div>{uiCustomizationMessage&&<p className="text-xs text-sage">{uiCustomizationMessage}</p>}</div>}</Card></div>
+<div id="system-appearance" className="scroll-mt-5 space-y-4">
+  <Card className="overflow-hidden">
+    <div className="flex items-start justify-between gap-6 border-b border-line px-6 py-5">
+      <div>
+        <p className="text-[9px] font-bold uppercase tracking-[.16em] text-blueprint/70">Workspace design</p>
+        <h2 className="mt-1 font-display text-xl font-semibold">Appearance & Navigation</h2>
+        <p className="mt-1 max-w-3xl text-xs leading-5 text-ink/45">Shape the main PICD sidebar and visual language from one place. These controls change presentation only; routes, permissions and protected behavior stay server-controlled.</p>
+      </div>
+      <div className="flex shrink-0 gap-2">
+        <button onClick={resetUiCustomization} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55 transition hover:border-ink/20 hover:text-ink">Restore defaults</button>
+        <button onClick={saveUiCustomization} disabled={!uiCustomization} className="rounded-lg bg-blueprint px-4 py-2 text-[11px] font-semibold text-paper shadow-sm disabled:opacity-40">Save changes</button>
+      </div>
+    </div>
+    {uiCustomization && <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(300px,.75fr)] gap-5 p-5">
+      <div className="space-y-5">
+        <section className="rounded-2xl border border-line bg-paper/35 p-4">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div><h3 className="text-sm font-semibold">Main sidebar structure</h3><p className="mt-1 text-[10px] leading-4 text-ink/40">Rename pages, group them under sections, change icons, hide pages, and reorder the main navigation.</p></div>
+            <span className="rounded-full bg-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide text-ink/35">{uiCustomization.navigation.filter(x => x.visible !== false).length} visible</span>
+          </div>
+          <div className="space-y-3">
+            {Array.from(new Set(uiCustomization.navigation.slice().sort((a,b)=>Number(a.order||0)-Number(b.order||0)).map(x=>x.section || "Monitor"))).map(section => {
+              const items = uiCustomization.navigation.slice().sort((a,b)=>Number(a.order||0)-Number(b.order||0)).filter(x => (x.section || "Monitor") === section);
+              return <div key={section} className="overflow-hidden rounded-xl border border-line bg-white">
+                <div className="flex items-center justify-between border-b border-line bg-paper/55 px-3 py-2"><div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-blueprint"/><span className="text-[10px] font-bold uppercase tracking-[.14em] text-ink/45">{section}</span></div><span className="text-[9px] text-ink/25">{items.length} page{items.length === 1 ? "" : "s"}</span></div>
+                <div className="divide-y divide-line/70">
+                  {items.map(item => { const globalIndex = uiCustomization.navigation.slice().sort((a,b)=>Number(a.order||0)-Number(b.order||0)).findIndex(x=>x.id===item.id); return <div key={item.id} className="grid grid-cols-[34px_minmax(0,1fr)_150px_62px_72px] items-center gap-2 px-3 py-2.5">
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg text-sm ${item.visible === false ? "bg-ink/5 text-ink/20" : "bg-blueprint/8 text-blueprint"}`}>{item.icon || "•"}</div>
+                    <div className="min-w-0"><input value={item.label} onChange={e=>setUiCustomization({...uiCustomization,navigation:uiCustomization.navigation.map(x=>x.id===item.id?{...x,label:e.target.value}:x)})} className="w-full rounded-lg border border-transparent bg-transparent px-2 py-1.5 text-xs font-semibold outline-none hover:border-line hover:bg-paper/40 focus:border-blueprint focus:bg-white" name={`nav_label_${item.id}`}/><p className="px-2 text-[9px] text-ink/25">{item.href}</p></div>
+                    <input value={item.section} onChange={e=>setUiCustomization({...uiCustomization,navigation:uiCustomization.navigation.map(x=>x.id===item.id?{...x,section:e.target.value}:x)})} className="rounded-lg border border-line bg-paper/30 px-2.5 py-2 text-[10px] outline-none focus:border-blueprint" name={`nav_group_${item.id}`} aria-label={`Group for ${item.label}`}/>
+                    <input value={item.icon} onChange={e=>setUiCustomization({...uiCustomization,navigation:uiCustomization.navigation.map(x=>x.id===item.id?{...x,icon:e.target.value.slice(0,2)}:x)})} className="rounded-lg border border-line bg-paper/30 px-2 py-2 text-center text-sm outline-none focus:border-blueprint" name={`nav_icon_${item.id}`} aria-label={`Icon for ${item.label}`}/>
+                    <div className="flex items-center justify-end gap-1"><button onClick={()=>moveUiNav(globalIndex,-1)} disabled={globalIndex===0} className="rounded-md border border-line bg-white px-2 py-1.5 text-[10px] disabled:opacity-25" aria-label={`Move ${item.label} up`}>↑</button><button onClick={()=>moveUiNav(globalIndex,1)} disabled={globalIndex===uiCustomization.navigation.length-1} className="rounded-md border border-line bg-white px-2 py-1.5 text-[10px] disabled:opacity-25" aria-label={`Move ${item.label} down`}>↓</button><button onClick={()=>setUiCustomization({...uiCustomization,navigation:uiCustomization.navigation.map(x=>x.id===item.id?{...x,visible:!x.visible}:x)})} className={`ml-1 rounded-md px-2 py-1.5 text-[9px] font-bold ${item.visible!==false?"bg-sage/10 text-sage":"bg-ink/5 text-ink/35"}`}>{item.visible!==false?"On":"Off"}</button></div>
+                  </div>; })}
+                </div>
+              </div>;
+            })}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-line bg-paper/35 p-4">
+          <div className="mb-4"><h3 className="text-sm font-semibold">Visual theme</h3><p className="mt-1 text-[10px] leading-4 text-ink/40">Keep the dashboard restrained and readable. Use hex colors for solid surfaces and rgba() where transparency is useful.</p></div>
+          <div className="grid grid-cols-2 gap-3">
+            {([["sidebar","background","Sidebar background"],["sidebar","text","Sidebar text"],["sidebar","active_background","Active page"],["sidebar","active_text","Active text"],["sidebar","hover_background","Hover"],["page","background","Page background"],["page","surface","Cards"],["page","border","Borders"],["page","text","Page text"],["page","accent","Accent"],["page","success","Success"],["page","warning","Warning"],["page","error","Error"]] as string[][]).map(([group,key,label])=><label key={`${group}.${key}`} className="text-[10px] font-semibold text-ink/50">{label}<div className="mt-1 flex items-center gap-2 rounded-lg border border-line bg-white p-1.5"><input type="text" value={(uiCustomization.theme as any)[group][key]} onChange={e=>setUiCustomization({...uiCustomization,theme:{...uiCustomization.theme,[group]:{...(uiCustomization.theme as any)[group],[key]:e.target.value}}})} className="min-w-0 flex-1 bg-transparent px-1.5 py-1.5 font-mono text-[10px] outline-none" name={`theme_${group}_${key}`}/><span className="h-6 w-6 shrink-0 rounded-md border border-black/10" style={{background:(uiCustomization.theme as any)[group][key]}}/></div></label>)}
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <label className="text-[10px] font-semibold text-ink/50">Sidebar width<input type="number" min={200} max={420} value={uiCustomization.theme.sidebar.width_px} onChange={e=>setUiCustomization({...uiCustomization,theme:{...uiCustomization.theme,sidebar:{...uiCustomization.theme.sidebar,width_px:Number(e.target.value)}}})} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-xs" name="theme_sidebar_width"/></label>
+            <label className="text-[10px] font-semibold text-ink/50">Density<select value={uiCustomization.theme.layout.density} onChange={e=>setUiCustomization({...uiCustomization,theme:{...uiCustomization.theme,layout:{...uiCustomization.theme.layout,density:e.target.value as "compact"|"comfortable"}}})} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-xs" name="theme_density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
+            <label className="flex items-center gap-2 pt-6 text-[10px] font-semibold text-ink/50"><input type="checkbox" checked={uiCustomization.theme.layout.sidebar_shadow} onChange={e=>setUiCustomization({...uiCustomization,theme:{...uiCustomization.theme,layout:{...uiCustomization.theme.layout,sidebar_shadow:e.target.checked}}})} name="theme_sidebar_shadow"/> Sidebar shadow</label>
+          </div>
+        </section>
+      </div>
+
+      <div className="space-y-5">
+        <section className="sticky top-0 overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
+          <div className="border-b border-line px-4 py-3"><p className="text-[9px] font-bold uppercase tracking-[.14em] text-ink/30">Live preview</p><h3 className="mt-1 text-sm font-semibold">Main sidebar</h3></div>
+          <div className="p-3"><div className="rounded-xl p-3" style={{background:uiCustomization.theme.sidebar.background,color:uiCustomization.theme.sidebar.text}}><div className="mb-4 px-2"><div className="text-sm font-semibold">Scan Queue</div><div className="mt-0.5 text-[9px] opacity-50">PICD measurement pipeline</div></div>{Array.from(new Set(uiCustomization.navigation.filter(x=>x.visible!==false).sort((a,b)=>Number(a.order||0)-Number(b.order||0)).map(x=>x.section || "Monitor"))).map(section => <div key={section} className="mb-3"><div className="mb-1 px-2 text-[8px] font-bold uppercase tracking-[.16em] opacity-40">{section}</div>{uiCustomization.navigation.filter(x=>x.visible!==false && (x.section||"Monitor")===section).sort((a,b)=>Number(a.order||0)-Number(b.order||0)).map(item=><div key={item.id} className="mb-0.5 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[10px]" style={item.id==="system"?{background:uiCustomization.theme.sidebar.active_background,color:uiCustomization.theme.sidebar.active_text}:undefined}><span className="w-4 text-center">{item.icon||"•"}</span><span className="truncate">{item.label}</span></div>)}</div>)}</div></div>
+          <div className="border-t border-line px-4 py-3 text-[9px] leading-4 text-ink/35">The preview reflects the saved navigation model. Use the controls on the left to organize the real main sidebar.</div>
+        </section>
+        {uiCustomizationMessage && <div className="rounded-xl border border-sage/20 bg-sage/5 px-4 py-3 text-xs text-sage">{uiCustomizationMessage}</div>}
+      </div>
+    </div>}
+  </Card>
+</div>
       </>);
       case "operations": return (<>
 <div id="system-operations" className="scroll-mt-5"><Card className="overflow-hidden"><div className="border-b border-line px-5 py-5 flex items-start justify-between gap-5"><div><h2 className="font-display font-semibold">Operations & calibration controls</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-ink/40">Business and operational thresholds live here instead of being buried in Python. Security and implementation safeguards remain code-controlled.</p></div><div className="flex gap-2"><button onClick={resetOperational} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55">Restore defaults</button><button onClick={saveOperational} disabled={!operational} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper disabled:opacity-40">Save operations</button></div></div>{operational && <div className="p-5 space-y-6">
@@ -490,25 +559,11 @@ export default function SystemPage() {
 
         {error && <div className="mb-4 rounded-xl border border-brick/20 bg-brick/10 px-4 py-3 text-sm text-brick">{error}</div>}
 
-        <div className="grid grid-cols-[230px_minmax(0,1fr)] gap-5 items-start">
-          <aside className="sticky top-0 rounded-2xl border border-line bg-white p-2 shadow-sm">
-            <div className="px-3 pb-2 pt-2"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-ink/30">Settings</p><p className="mt-1 text-[10px] leading-4 text-ink/40">Grouped by purpose. Only the selected panel is rendered.</p></div>
-            {[
-              ["Overview", [["overview","Settings overview","⌂"]]],
-              ["Notifications", [["email","Email notifications","✉"],["sound","Notification sound","♪"]]],
-              ["Processing", [["operations","Operations","◌"],["features","Feature flags","⚑"],["estimate","Client Estimate","◇"],["body","Body Analyzer","◉"],["global","Global Variables","⌁"]]],
-              ["Workspace", [["appearance","Appearance & Navigation","▤"],["general","Connection & Runtime","⚙"]]],
-              ["Access & Data", [["access","Users & Access","♙"],["database","Database","▥"]]],
-              ["Diagnostics", [["logs","Diagnostics & Logs","≡"]]],
-            ].map(([group,items]) => <div key={String(group)} className="mt-3 first:mt-1"><p className="px-3 pb-1 text-[9px] font-bold uppercase tracking-[.12em] text-ink/25">{String(group)}</p><div className="space-y-0.5">{(items as string[][]).map(([id,label,icon]) => <button key={id} onClick={() => selectSection(id)} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[10px] font-semibold transition ${activeSection === id ? "bg-blueprint text-paper shadow-sm" : "text-ink/55 hover:bg-paper hover:text-ink"}`}><span className="w-4 text-center text-[13px] opacity-80">{icon}</span><span>{label}</span></button>)}</div></div>)}
-          </aside>
-          <div className="min-w-0">
-
+        <div className="min-w-0">
         {loading ? <div className="space-y-4">{Array.from({length:4}).map((_,i)=><div key={i} className="animate-pulse rounded-2xl border border-line bg-white p-6"><div className="h-5 w-48 rounded bg-ink/[.06]"/><div className="mt-3 h-3 w-80 rounded bg-ink/[.04]"/><div className="mt-6 grid grid-cols-2 gap-3"><div className="h-10 rounded-lg bg-ink/[.035]"/><div className="h-10 rounded-lg bg-ink/[.035]"/></div><div className="mt-4 h-20 rounded-xl bg-ink/[.035]"/></div>)}</div> : <div className="min-w-0 space-y-4">
                         {renderActiveSection()}
 <p className={`pb-5 text-[10px] text-ink/30 ${activeSection === "general" ? "" : "hidden"}`}>Platform: {health?.platform ?? "—"} · Python: {health?.python ?? "—"} · Mongo configured: {health?.mongo_configured ? "yes" : "no"}</p>
           </div>}
-          </div>
         </div>
       </div>
     </div>
