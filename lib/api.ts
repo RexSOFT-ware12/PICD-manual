@@ -628,3 +628,32 @@ export async function downloadDazAsset(s: ConnectionSettings, id: string, filena
   if(!res.ok){let detail=`DAZ asset download failed (${res.status})`;try{const b=await res.json();if(typeof b?.detail==="string")detail=b.detail}catch{}throw new ApiError(detail,res.status)}
   const blob=await res.blob(); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
+
+export interface ProcessingWorker {
+  id: string;
+  worker_id: string;
+  name: string;
+  active: boolean;
+  disabled: boolean;
+  created_at: string;
+  updated_at: string;
+  last_seen: string | null;
+  agent_id: string | null;
+  current_scan_id: string | null;
+  processed_count: number;
+  last_result_at: string | null;
+}
+export interface WorkerListResponse { items: ProcessingWorker[]; }
+export interface WorkerCredentialResponse { worker: ProcessingWorker; token: string; }
+export const fetchWorkers = (s: ConnectionSettings) => request<WorkerListResponse>("/monitor/workers", s);
+export const createWorker = (s: ConnectionSettings, body: {name:string; worker_id:string}) => postJson<WorkerCredentialResponse>("/monitor/workers", s, body);
+export const renameWorker = (s: ConnectionSettings, workerId: string, name: string) => patchJson<{worker:ProcessingWorker}>(`/monitor/workers/${encodeURIComponent(workerId)}`, s, {name});
+export const activateWorker = (s: ConnectionSettings, workerId: string) => postJson<{worker:ProcessingWorker}>(`/monitor/workers/${encodeURIComponent(workerId)}/activate`, s, {});
+export const deactivateWorker = (s: ConnectionSettings, workerId: string) => postJson<{worker:ProcessingWorker}>(`/monitor/workers/${encodeURIComponent(workerId)}/deactivate`, s, {});
+export const regenerateWorkerToken = (s: ConnectionSettings, workerId: string) => postJson<WorkerCredentialResponse>(`/monitor/workers/${encodeURIComponent(workerId)}/regenerate-token`, s, {});
+export async function deleteWorker(s: ConnectionSettings, workerId: string) {
+  if (!s.baseUrl) throw new ApiError("No backend URL configured yet.");
+  const res = await fetch(`${s.baseUrl.replace(/\/$/, "")}/monitor/workers/${encodeURIComponent(workerId)}`, { method:"DELETE", headers:authHeaders(s.apiKey ? {"X-API-Key":s.apiKey}:{}), credentials:"include", cache:"no-store" });
+  if (!res.ok) { let detail=`Backend returned ${res.status}`; try { const b=await res.json(); if(typeof b?.detail === "string") detail=b.detail; } catch {} throw new ApiError(detail,res.status); }
+  return res.json() as Promise<{ok:boolean}>;
+}
