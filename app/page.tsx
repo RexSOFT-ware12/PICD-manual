@@ -28,10 +28,12 @@ import Column from "@/components/Column";
 import AppShell from "@/components/AppShell";
 import ConfirmModal from "@/components/ConfirmModal";
 
-const STATUS_ORDER: { key: ScanStatus; label: string }[] = [
+type BoardStatus = ScanStatus | "delivered";
+const STATUS_ORDER: { key: BoardStatus; label: string }[] = [
   { key: "queued", label: "Queued" },
   { key: "processing", label: "Processing" },
   { key: "completed", label: "Completed" },
+  { key: "delivered", label: "Delivered" },
   { key: "failed", label: "Failed" },
 ];
 
@@ -61,8 +63,8 @@ function DashboardSkeleton() {
         <div className="col-span-2 h-[78px] animate-pulse rounded-xl border border-line bg-white" />
         {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-[78px] animate-pulse rounded-xl border border-line bg-white" />)}
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
+        {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="min-h-20 rounded-xl bg-ink/[0.035] p-2">
             <div className="mb-2 h-7 w-28 animate-pulse rounded-lg bg-ink/10" />
             <div className="space-y-2">
@@ -331,8 +333,12 @@ export default function Home() {
     } finally { setDeletingScan(null); }
   };
 
-  const byStatus = (status: ScanStatus) =>
-    scans.filter((s) => s.status === status && (!showOnlyActive || (s.status === "queued" || s.status === "processing")));
+  const byBoardStatus = (status: BoardStatus) => scans.filter((s) => {
+    if (showOnlyActive && s.status !== "queued" && s.status !== "processing") return false;
+    if (status === "delivered") return s.status === "completed" && s.delivery_status === "delivered";
+    if (status === "completed") return s.status === "completed" && s.delivery_status !== "delivered";
+    return s.status === status;
+  });
 
   const isSearchActive = search.trim().length > 0;
   const isStale = consecutiveFailures >= STALE_AFTER_FAILURES || authBlocked;
@@ -360,7 +366,7 @@ export default function Home() {
               <h1 className="font-display text-xl font-semibold text-ink">Pipeline board</h1>
               <span className="hidden rounded-full bg-sage/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-sage sm:inline-flex">manual control</span>
             </div>
-            <p className="mt-1 text-[11px] text-ink/35">Drag a queued card to Processing to run that scan. Drag failed/processing cards back to Queue. Completed scans are locked.</p>
+            <p className="mt-1 text-[11px] text-ink/35">Desktop pipeline: Queue → Processing → Completed → Delivered. Failed runs can be returned to Queue. Delivered results are locked.</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button onClick={() => setCompact(v => !v)} className="hidden rounded-full border border-line bg-white px-3 py-1.5 text-[11px] text-ink/55 transition hover:border-blueprint hover:text-blueprint sm:inline-flex">{compact ? "Comfortable" : "Compact"}</button>
@@ -461,27 +467,31 @@ export default function Home() {
               </p>
               <p className="mt-2 text-sm text-ink/50">
                 Open “connection” in the left rail and point this at your
-                tunnel URL to start monitoring the queue.
+                cloud API URL to start monitoring the queue.
               </p>
             </div>
           </div>
         ) : (
           <div
-            className={`grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden transition-opacity duration-500 sm:grid-cols-2 xl:grid-cols-4 ${
+            className={`flex min-h-0 flex-1 gap-4 overflow-x-auto overflow-y-hidden pb-2 transition-opacity duration-500 ${
               isStale ? "opacity-60" : ""
             }`}
           >
             {STATUS_ORDER.map(({ key, label }) => (
-              <Column
-                key={key}
-                status={key}
+              <div key={key} className="min-w-[300px] flex-1">
+                <Column
+                key={`${key}-column`}
+                status={key === "delivered" ? "completed" : key}
                 label={label}
-                scans={byStatus(key)}
+                scans={byBoardStatus(key)}
                 count={
                   isSearchActive
-                    ? byStatus(key).length
-                    : stats?.counts[key] ?? byStatus(key).length
+                    ? byBoardStatus(key).length
+                    : key === "delivered"
+                    ? (stats?.delivered ?? byBoardStatus(key).length)
+                    : stats?.counts[key] ?? byBoardStatus(key).length
                 }
+                boardStatus={key === "delivered" ? "delivered" : undefined}
                 onRetried={() => refresh(settings)}
                 onDropScan={handleDropScan}
                 onDropBefore={handleReorder}
@@ -489,7 +499,8 @@ export default function Home() {
                 deletingScan={deletingScan}
                 onDelete={handleDelete}
                 compact={compact}
-              />
+                />
+              </div>
             ))}
           </div>
         )}

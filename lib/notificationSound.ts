@@ -41,7 +41,7 @@ function tone(ctx: AudioContext, frequency: number, start: number, duration: num
   osc.stop(start + duration + 0.02);
 }
 
-export function playNotificationSound(kind: "incoming" | "completed" | "failed", selected: NotificationSound = loadNotificationSound()) {
+export function playNotificationSound(kind: "incoming" | "completed" | "delivered" | "failed", selected: NotificationSound = loadNotificationSound()) {
   if (selected === "silent") return;
   try {
     const ctx = createContext();
@@ -49,8 +49,8 @@ export function playNotificationSound(kind: "incoming" | "completed" | "failed",
     const now = ctx.currentTime + 0.01;
 
     if (selected === "default") {
-      const notes = kind === "failed" ? [220, 175, 220] : kind === "completed" ? [660, 880] : [740, 980];
-      const spacing = kind === "failed" ? 0.16 : 0.12;
+      const notes = kind === "failed" ? [220, 175, 220] : kind === "delivered" ? [784, 1046, 1318] : kind === "completed" ? [660, 880] : [740, 980];
+      const spacing = kind === "failed" ? 0.16 : kind === "delivered" ? 0.10 : 0.12;
       notes.forEach((frequency, index) => tone(ctx, frequency, now + index * spacing, 0.1, kind === "failed" ? "square" : "sine"));
     } else if (selected === "chime") {
       tone(ctx, 660, now, 0.28, "sine", 0.09);

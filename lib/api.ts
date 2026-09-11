@@ -1,4 +1,5 @@
 export type ScanStatus = "queued" | "processing" | "completed" | "failed";
+export type DeliveryStatus = "pending" | "sending" | "delivered" | "failed" | "not_configured";
 
 export interface ScanSummary {
   scan_id: string;
@@ -11,6 +12,24 @@ export interface ScanSummary {
   front_image_url: string | null;
   side_image_url: string | null;
   daz_template: string | null;
+  result?: {
+    scan_id: string;
+    user_id: string;
+    status: ScanStatus;
+    processed_at: string;
+    measurements_output?: {
+      height_cm?: number | null; weight_kg?: number | null; bust_cm?: number | null; chest_cm?: number | null;
+      waist_cm?: number | null; hips_cm?: number | null; shoulder_width_cm?: number | null; inseam_cm?: number | null;
+    } | null;
+    daz_model?: { template: string; sliders: Record<string, number> } | null;
+    source_svg_key?: string | null;
+    error?: string | null;
+  } | null;
+  delivery_status?: DeliveryStatus;
+  delivered_at?: string | null;
+  delivery_error?: string | null;
+  delivery_attempts?: number;
+  has_stored_images?: boolean;
   processing_started_at?: string | null;
   completed_at?: string | null;
   failed_at?: string | null;
@@ -42,6 +61,7 @@ export interface StatsResponse {
   avg_wait_seconds?: number | null;
   completed_today?: number;
   failed_today?: number;
+  delivered?: number;
 }
 
 export interface ConnectionSettings {
@@ -444,6 +464,16 @@ export async function reorderScan(settings: ConnectionSettings, scanId: string, 
     if (e instanceof ApiError) throw e;
     throw new ApiError("Couldn't reach the backend. Check the URL and that the tunnel/server is running.");
   }
+}
+
+export interface DeliveryRetryResponse { scan_id: string; delivered: boolean; delivery_status: DeliveryStatus; }
+export const retryDelivery = (s: ConnectionSettings, scanId: string) => postJson<DeliveryRetryResponse>(`/monitor/scans/${encodeURIComponent(scanId)}/deliver`, s, {});
+
+export function resolveBackendAssetUrl(settings: ConnectionSettings, src: string | null): string | null {
+  if (!src) return null;
+  if (/^https?:\/\//i.test(src)) return src;
+  if (!settings.baseUrl) return src;
+  return `${settings.baseUrl.replace(/\/$/, "")}/${src.replace(/^\//, "")}`;
 }
 
 export interface EmailSettings {

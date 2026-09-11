@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-import { ApiError, isAbortError, loadSettings, retryScan, type ScanSummary } from "@/lib/api";
+import { ApiError, isAbortError, loadSettings, resolveBackendAssetUrl, retryDelivery, retryScan, type ScanSummary } from "@/lib/api";
 import ConfirmModal from "@/components/ConfirmModal";
 
 const statusLabel: Record<string, string> = {
@@ -11,6 +11,7 @@ const statusLabel: Record<string, string> = {
   processing: "Processing",
   completed: "Completed",
   failed: "Failed",
+  delivered: "Delivered",
 };
 
 const statusColor: Record<string, string> = {
@@ -18,6 +19,7 @@ const statusColor: Record<string, string> = {
   processing: "bg-amber/10 text-amber",
   completed: "bg-sage/10 text-sage",
   failed: "bg-brick/10 text-brick",
+  delivered: "bg-sage/10 text-sage",
 };
 
 function formatDate(iso: string | null): string {
@@ -103,12 +105,14 @@ export default function ScanDetailModal({
   scan,
   onClose,
   onRetried,
+  displayStatus,
 }: {
   scan: ScanSummary;
   onClose: () => void;
   /** Called after a successful retry so the board can refresh sooner
    * than the next poll tick, instead of waiting up to REFRESH_MS. */
   onRetried?: () => void;
+  displayStatus?: "delivered";
 }) {
   const [retryState, setRetryState] = useState<
     "idle" | "retrying" | "done" | "error"
@@ -121,6 +125,12 @@ export default function ScanDetailModal({
   }, []);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [confirmRetry, setConfirmRetry] = useState(false);
+  const [deliveryState, setDeliveryState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [deliveryError, setDeliveryError] = useState<string | null>(null);
+  const shownStatus = displayStatus ?? scan.status;
+  const imageSettings = loadSettings();
+  const frontSrc = resolveBackendAssetUrl(imageSettings, scan.front_image_url);
+  const sideSrc = resolveBackendAssetUrl(imageSettings, scan.side_image_url);
 
   // Esc to close, and lock background scroll while open.
   useEffect(() => {
@@ -135,6 +145,19 @@ export default function ScanDetailModal({
       document.body.style.overflow = prevOverflow;
     };
   }, [onClose]);
+
+  const handleDeliveryRetry = async () => {
+    setDeliveryState("sending");
+    setDeliveryError(null);
+    try {
+      await retryDelivery(loadSettings(), scan.scan_id);
+      setDeliveryState("done");
+      onRetried?.();
+    } catch (e) {
+      setDeliveryState("error");
+      setDeliveryError(e instanceof ApiError ? e.message : "Delivery retry failed.");
+    }
+  };
 
   const handleRetry = async () => {
     setConfirmRetry(false);
@@ -169,11 +192,12 @@ export default function ScanDetailModal({
             <p className="font-mono text-xs text-ink/40">{scan.scan_id}</p>
             <span
               className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ${
-                statusColor[scan.status] ?? "bg-slate/10 text-slate"
+                statusColor[shownStatus] ?? "bg-slate/10 text-slate"
               }`}
             >
-              {statusLabel[scan.status] ?? scan.status}
+              {statusLabel[shownStatus] ?? shownStatus}
             </span>
+            <p className="mt-2 max-w-xl text-xs leading-relaxed text-ink/45">{statusExplanation(shownStatus, scan.error)}</p>
           </div>
           <button
             onClick={onClose}
@@ -186,11 +210,11 @@ export default function ScanDetailModal({
 
         {(scan.front_image_url || scan.side_image_url) && (
           <div className="mb-4 grid grid-cols-2 gap-3">
-            {scan.front_image_url && (
-              <DetailImage src={scan.front_image_url} alt="front" />
+            {frontSrc && (
+              <DetailImage src={frontSrc} alt="front" />
             )}
-            {scan.side_image_url && (
-              <DetailImage src={scan.side_image_url} alt="side" />
+            {sideSrc && (
+              <DetailImage src={sideSrc} alt="side" />
             )}
           </div>
         )}
@@ -206,6 +230,36 @@ export default function ScanDetailModal({
         </div>
 
         {scan.client_input && <ClientMeasurements input={scan.client_input} />}
+
+        {scan.result?.measurements_output && (
+          <section className="mt-4 rounded-xl border border-sage/20 bg-sage/5 p-4">
+            <div className="mb-3"><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-sage">Result measurements</p><p className="mt-0.5 text-xs text-ink/45">Output produced by the Photoshop → Illustrator → Python → DAZ pipeline.</p></div>
+            <div className="grid grid-cols-2 gap-x-5 gap-y-1">
+              {Object.entries(scan.result.measurements_output).filter(([,v]) => v !== null && v !== undefined).map(([key,value]) => <Row key={key} label={key.replaceAll("_", " ")} value={String(value)} />)}
+            </div>
+          </section>
+        )}
+
+        {scan.result?.daz_model && (
+          <section className="mt-3 rounded-xl border border-line bg-white/55 p-4">
+            <div className="mb-3"><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">DAZ result</p></div>
+            <Row label="Template" value={scan.result.daz_model.template} />
+            <div className="mt-2 grid grid-cols-2 gap-x-5 gap-y-1">
+              {Object.entries(scan.result.daz_model.sliders || {}).map(([key,value]) => <Row key={key} label={key} value={String(value)} />)}
+            </div>
+            {scan.result.source_svg_key && <div className="mt-2"><Row label="SVG key" value={scan.result.source_svg_key} /></div>}
+          </section>
+        )}
+
+        <section className="mt-3 rounded-xl border border-line bg-white/55 p-4">
+          <div className="mb-3"><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">Delivery</p><p className="mt-0.5 text-xs text-ink/45">Downstream result delivery is independent from processing, so a delivery outage never requires re-running the desktop pipeline.</p></div>
+          <div className="flex items-center justify-between gap-3">
+            <div><p className="text-xs font-semibold text-ink/70">{scan.delivery_status === "delivered" ? "Delivered to Shopdrop" : scan.delivery_status === "failed" ? "Delivery failed" : scan.delivery_status === "sending" ? "Sending…" : "Waiting for delivery"}</p><p className="mt-0.5 font-mono text-[10px] text-ink/35">{formatDate(scan.delivered_at ?? null)}</p></div>
+            {scan.delivery_status !== "delivered" && scan.result && <button type="button" onClick={handleDeliveryRetry} disabled={deliveryState === "sending"} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper disabled:opacity-50">{deliveryState === "sending" ? "Sending…" : "Retry delivery"}</button>}
+          </div>
+          {(scan.delivery_error || deliveryError) && <p className="mt-2 break-words rounded bg-amber/10 px-2 py-1.5 text-[11px] text-amber">{deliveryError || scan.delivery_error}</p>}
+          {deliveryState === "done" && <p className="mt-2 rounded bg-sage/10 px-2 py-1.5 text-[11px] font-medium text-sage">Delivery accepted. The board will update on the next refresh.</p>}
+        </section>
 
         <section className="mt-4 rounded-xl border border-line bg-white/55 p-4">
           <div className="mb-3"><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">Processing timeline</p><p className="mt-0.5 text-xs text-ink/45">A concise audit trail for this scan.</p></div>

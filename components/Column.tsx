@@ -28,6 +28,7 @@ export default function Column({
   deletingScan,
   onDelete,
   compact = false,
+  boardStatus,
 }: {
   status: ScanStatus;
   label: string;
@@ -41,6 +42,7 @@ export default function Column({
   deletingScan?: string | null;
   onDelete?: (scanId: string) => void;
   compact?: boolean;
+  boardStatus?: "delivered";
 }) {
   const animatedCount = useAnimatedNumber(count);
 
@@ -85,6 +87,7 @@ export default function Column({
             onDelete={onDelete}
             onDropBefore={onDropBefore}
             compact={compact}
+            displayStatus={boardStatus}
             style={{ animationDelay: `${Math.min(i * STAGGER_STEP_MS, MAX_STAGGER_MS)}ms` }}
           />
         ))}

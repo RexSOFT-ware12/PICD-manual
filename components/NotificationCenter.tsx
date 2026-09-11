@@ -26,7 +26,8 @@ export default function NotificationCenter() {
     if (!fresh.length) return;
 
     const newest = fresh[0];
-    const kind = newest.severity === "critical" ? "failed" : newest.title.toLowerCase().includes("completed") ? "completed" : "incoming";
+    const title = newest.title.toLowerCase();
+    const kind = newest.severity === "critical" ? "failed" : title.includes("delivered") ? "delivered" : title.includes("completed") ? "completed" : "incoming";
     playNotificationSound(kind, loadNotificationSound());
     setRinging(true);
     window.setTimeout(() => setRinging(false), 1200);

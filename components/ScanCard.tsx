@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from "react";
 import Image from "next/image";
-import type { ScanSummary } from "@/lib/api";
+import { loadSettings, resolveBackendAssetUrl, type ScanSummary } from "@/lib/api";
 import ScanDetailModal from "./ScanDetailModal";
 
 function timeAgo(iso: string | null): string {
@@ -32,9 +32,13 @@ function Thumb({ src, alt }: { src: string; alt: string }) {
   return <div className="relative h-14 w-11 overflow-hidden rounded bg-ink/5">{!loaded && <div className="absolute inset-0 animate-pulse bg-ink/10" />}<Image ref={imgRef} src={src} alt={alt} fill sizes="48px" className={`object-cover transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`} unoptimized onLoad={() => setLoaded(true)} onError={() => setFailed(true)} /></div>;
 }
 
-export default function ScanCard({ scan, style, onRetried, onMoved, draggable = false, deleteMode = false, deleting = false, onDelete, onDropBefore, compact = false }: { scan: ScanSummary; style?: CSSProperties; onRetried?: () => void; onMoved?: () => void; draggable?: boolean; deleteMode?: boolean; deleting?: boolean; onDelete?: (scanId: string) => void; onDropBefore?: (scanId: string, targetScanId: string) => void; compact?: boolean }) {
+export default function ScanCard({ scan, style, onRetried, onMoved, draggable = false, deleteMode = false, deleting = false, onDelete, onDropBefore, compact = false, displayStatus }: { scan: ScanSummary; style?: CSSProperties; onRetried?: () => void; onMoved?: () => void; draggable?: boolean; deleteMode?: boolean; deleting?: boolean; onDelete?: (scanId: string) => void; onDropBefore?: (scanId: string, targetScanId: string) => void; compact?: boolean; displayStatus?: "delivered" }) {
   const [open, setOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const imageSettings = loadSettings();
+  const frontSrc = resolveBackendAssetUrl(imageSettings, scan.front_image_url);
+  const sideSrc = resolveBackendAssetUrl(imageSettings, scan.side_image_url);
+  const shownStatus = displayStatus ?? scan.status;
 
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     if (!draggable) { e.preventDefault(); return; }
@@ -81,10 +85,11 @@ export default function ScanCard({ scan, style, onRetried, onMoved, draggable = 
       }}
       className={`${compact ? "p-2" : "p-3"} min-w-0 cursor-pointer animate-fade-in-up rounded-lg border border-line border-l-[3px] bg-white/70 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md ${accentByStatus[scan.status] ?? "border-l-slate"} ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${dragging ? "scale-[.98] opacity-45" : ""}`}
     >
-      {open && <ScanDetailModal scan={scan} onClose={() => setOpen(false)} onRetried={onRetried} />}
+      {open && <ScanDetailModal scan={scan} displayStatus={displayStatus} onClose={() => setOpen(false)} onRetried={onRetried} />}
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="truncate font-mono text-[11px] text-ink/60">{scan.scan_id.slice(0, 8)}…</span>
         <div className="flex shrink-0 items-center gap-1">
+          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${shownStatus === "delivered" ? "bg-sage/10 text-sage" : scan.status === "failed" ? "bg-brick/10 text-brick" : scan.status === "processing" ? "bg-amber/10 text-amber" : scan.status === "queued" ? "bg-slate/10 text-slate" : "bg-sage/10 text-sage"}`}>{shownStatus}</span>
           <span className="font-mono text-[10px] text-ink/40">{timeAgo(scan.status === "queued" ? scan.created_at : scan.updated_at)}</span>
           {onDelete && scan.status !== "completed" && (
             <button
@@ -107,10 +112,13 @@ export default function ScanCard({ scan, style, onRetried, onMoved, draggable = 
           )}
         </div>
       </div>
-      {(scan.front_image_url || scan.side_image_url) && <div className={`${compact ? "mb-1.5" : "mb-2"} flex gap-1.5`}>{scan.front_image_url && <Thumb src={scan.front_image_url} alt="front" />}{scan.side_image_url && <Thumb src={scan.side_image_url} alt="side" />}</div>}
+      {(frontSrc || sideSrc) && <div className={`${compact ? "mb-1.5" : "mb-2"} flex gap-1.5`}>{frontSrc && <Thumb src={frontSrc} alt="front" />}{sideSrc && <Thumb src={sideSrc} alt="side" />}</div>}
       <div className="flex items-center justify-between gap-2 text-xs"><span className="truncate text-ink/70">{scan.user_id ?? "unknown user"}</span>{scan.gender && <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/50">{scan.gender}</span>}</div>
       {scan.status === "failed" && scan.error && <p className="mt-2 line-clamp-2 break-words rounded bg-brick/10 px-2 py-1 text-[11px] text-brick">{scan.error}</p>}
       {scan.status === "completed" && scan.daz_template && <p className="mt-2 truncate font-mono text-[10px] text-sage">{scan.daz_template}</p>}
+      {shownStatus === "delivered" && <p className="mt-2 text-[10px] font-semibold uppercase tracking-[.12em] text-sage">✓ Result delivered</p>}
+      {scan.delivery_status === "failed" && scan.status === "completed" && <p className="mt-2 line-clamp-2 rounded bg-amber/10 px-2 py-1 text-[10px] text-amber">Delivery failed — click to review/retry</p>}
+      {scan.result?.measurements_output && shownStatus === "delivered" && (() => { const m=scan.result.measurements_output; const vals=[m.height_cm,m.weight_kg,m.bust_cm ?? m.chest_cm,m.waist_cm,m.hips_cm].filter(v=>v!=null); return vals.length ? <p className="mt-1 font-mono text-[10px] text-ink/45">{vals.slice(0,5).map((v,i)=>String(v)).join(" · ")}</p> : null; })()}
       {draggable && <p className="mt-1.5 text-[9px] uppercase tracking-[.14em] text-ink/25">{scan.status === "queued" ? "drag to arrange or process" : "drag to queue"}</p>}
     </div>
   );
