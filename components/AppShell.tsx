@@ -94,6 +94,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
     fetchUICustomization(settings).then(setUi).catch(() => {});
   }, [admin, settings]);
 
+  // This hook must run on every render. It cannot live below the auth loading
+  // return, otherwise the shell renders a different number/order of hooks when
+  // authentication changes and React throws minified error #310.
+  const [activeSetting, setActiveSetting] = useState("overview");
   const rawNavigation = Array.isArray(ui?.navigation) ? ui.navigation : [];
   const navigation = (rawNavigation.length ? rawNavigation : defaultNav)
     .filter((item): item is typeof defaultNav[number] => !!item && typeof item === "object" && typeof item.href === "string" && typeof item.id === "string")
@@ -157,7 +161,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const settingsOpen = pathname === "/system";
   // Avoid useSearchParams in the shared shell so every route can be statically prerendered.
   // The query string is only needed for highlighting a nested settings item.
-  const [activeSetting, setActiveSetting] = useState("overview");
   useEffect(() => {
     if (!settingsOpen) { setActiveSetting("overview"); return; }
     try {
