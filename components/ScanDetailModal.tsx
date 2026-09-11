@@ -229,6 +229,31 @@ export default function ScanDetailModal({
           )}
         </div>
 
+        {scan.image_analysis && (() => {
+          const a = scan.image_analysis;
+          const front = a.card?.front;
+          const side = a.card?.side;
+          const issues = a.issues ?? [];
+          const allIssues = [...issues, ...(front?.issues ?? []).map((x) => `Front: ${x}`), ...(side?.issues ?? []).map((x) => `Side: ${x}`)];
+          const uniqueIssues = Array.from(new Set(allIssues));
+          const state = a.status === "analyzing" ? "analyzing" : a.status === "error" ? "error" : uniqueIssues.length || a.status === "warning" ? "warning" : "ok";
+          const badge = state === "ok" ? "bg-sage/10 text-sage" : state === "warning" ? "bg-amber/10 text-amber" : state === "error" ? "bg-brick/10 text-brick" : "bg-blueprint/10 text-blueprint";
+          const value = (v?: number | null, suffix = "") => v == null ? "—" : `${Math.round(v * 10) / 10}${suffix}`;
+          const pose = (x?: typeof front) => x ? `${value(x.left_arm_deg, "°")} / ${value(x.right_arm_deg, "°")}` : "—";
+          const stage = a.stage === "storing_images" ? "Saving images" : a.stage === "analyzing_front" ? "Checking front" : a.stage === "analyzing_side" ? "Checking side" : a.status === "analyzing" ? "Preparing" : "Analysis complete";
+          return <section className="mt-4 rounded-xl border border-line bg-white/55 p-4">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">Image quality &amp; pose analysis</p><p className="mt-0.5 text-xs text-ink/45">Detailed checks performed on the incoming front and side images.</p></div>
+              <span className={`rounded px-2 py-1 text-[9px] font-bold uppercase tracking-wider ${badge}`}>{state === "analyzing" ? stage : state === "ok" ? "Ready" : state === "warning" ? `${uniqueIssues.length} warning${uniqueIssues.length === 1 ? "" : "s"}` : "Analysis error"}</span>
+            </div>
+            {state === "analyzing" && <div className="mb-3"><div className="mb-1 flex justify-between text-[10px] text-ink/40"><span>{stage}</span><span className="font-mono">{Math.round(a.progress ?? 0)}%</span></div><div className="h-1.5 overflow-hidden rounded-full bg-blueprint/10"><div className="h-full rounded-full bg-blueprint/60 transition-[width] duration-500" style={{width:`${Math.max(0, Math.min(100, Number(a.progress ?? 0)))}%`}} /></div></div>}
+            <div className="grid grid-cols-2 gap-3">
+              {[['Front', front], ['Side', side]].map(([label, item]) => { const x = item as typeof front; return <div key={String(label)} className="rounded-lg border border-line/70 bg-paper/60 p-3"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-ink/45">{String(label)} image</p><div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]"><Row label="Status" value={x?.status ?? (state === "analyzing" ? "analyzing" : "—")} /><Row label="Resolution" value={x?.resolution ?? "—"} /><Row label="Sharpness" value={value(x?.sharpness)} /><Row label="Brightness" value={value(x?.brightness)} /><Row label="Pose confidence" value={x?.pose_confidence == null ? "—" : `${Math.round(x.pose_confidence * 100)}%`} /><Row label="Left / right arm" value={pose(x)} /></div></div> })}
+            </div>
+            {uniqueIssues.length > 0 && <div className="mt-3 rounded-lg border border-amber/20 bg-amber/5 p-3"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber">Warnings &amp; checks requiring attention</p><ul className="space-y-1.5">{uniqueIssues.map((issue, i) => <li key={`${issue}-${i}`} className="flex gap-2 text-[11px] leading-relaxed text-amber"><span>•</span><span>{issue}</span></li>)}</ul></div>}
+          </section>;
+        })()}
+
         {scan.client_input && <ClientMeasurements input={scan.client_input} />}
 
         {scan.result?.measurements_output && (
