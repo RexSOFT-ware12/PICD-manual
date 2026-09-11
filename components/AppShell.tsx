@@ -53,7 +53,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   // Start identically on server and client; hydrate cached auth after mount to avoid React hydration mismatches.
   const [admin, setAdmin] = useState<AuthMe | null>(null);
-  const [, setChecking] = useState(true);
+  const [checking, setChecking] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [ui, setUi] = useState<UICustomization | null>(null);
   const settings = useMemo(() => loadSettings(), []);
@@ -64,7 +64,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
     const cached = readCachedAdmin();
     if (cached) setAdmin(cached);
     if (!settings.baseUrl) { setChecking(false); router.replace("/login"); return; }
-    // Revalidate silently in the background. Cached session data keeps navigation instant.
+    // Do not render protected child pages from a stale session cache. We still use the
+    // cache for the sidebar identity once the real session has been revalidated, but
+    // waiting here prevents a burst of 401 requests (and avoids rendering pages with
+    // undefined API data) when the HttpOnly session has expired or been cleared.
     fetchCurrentAdmin(settings).then((me) => {
       if (!cancelled) { cacheAdmin(me); setAdmin(me); setChecking(false); }
     }).catch((error) => {
@@ -126,7 +129,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   };
   const layoutTheme = theme?.layout ?? { density: "comfortable" as const, sidebar_shadow: true };
 
-  if (!admin) {
+  if (checking || !admin) {
     return <div className="flex h-screen items-center justify-center bg-paper"><div className="rounded-2xl border border-line bg-white px-7 py-6 text-center shadow-sm"><div className="mx-auto mb-3 h-2.5 w-2.5 animate-pulse rounded-full bg-blueprint"/><p className="font-display text-sm font-semibold">Signing you in…</p><p className="mt-1 text-xs text-ink/40">Preparing your dashboard</p></div></div>;
   }
 
