@@ -9,6 +9,10 @@ export interface ImageAnalysisSummary {
   left_arm_deg?: number | null;
   right_arm_deg?: number | null;
   pose_confidence?: number | null;
+  gemini_status?: string | null;
+  gemini_summary?: string | null;
+  gemini_confidence?: number | null;
+  gemini_issues?: string[];
   issues?: string[];
 }
 
@@ -596,9 +600,9 @@ export const updateSystemControl = (s: ConnectionSettings, body: {paused?:boolea
 export const updateFeatures = (s: ConnectionSettings, body: Record<string,boolean>) => postJson<SystemState>("/monitor/system/features",s,body);
 export const updateSystemConfig = (s: ConnectionSettings, body: Record<string,number>) => postJson<SystemState>("/monitor/system/config",s,body);
 export type OperationalConfig = {
-  processing: { image_download_timeout_seconds:number; processing_lease_seconds:number; worker_heartbeat_seconds:number; worker_offline_after_seconds:number; photoshop_manual_step_mode:"manual"|"automatic" };
+  processing: { image_download_timeout_seconds:number; processing_lease_seconds:number; worker_heartbeat_seconds:number; worker_offline_after_seconds:number };
   delivery: { http_timeout_seconds:number; max_attempts:number; retry_delays_seconds:number[]; pending_recovery_limit:number; automatic_delivery:boolean };
-  image_qc: { minimum_brightness:number; maximum_brightness:number; minimum_contrast:number; minimum_sharpness:number; minimum_edge_ratio:number; canny_low_threshold:number; canny_high_threshold:number; minimum_pose_confidence:number; minimum_landmark_visibility:number; minimum_detection_confidence:number; maximum_shoulder_tilt:number; maximum_body_off_center:number; front_horizontal_arm_warning_degrees:number; front_arm_elevation_warning_degrees:number; advisory_only:boolean };
+  image_qc: { gemini_enabled:boolean; gemini_model:string; minimum_brightness:number; maximum_brightness:number; minimum_contrast:number; minimum_sharpness:number; minimum_resolution_px:number; minimum_edge_ratio:number; canny_low_threshold:number; canny_high_threshold:number; minimum_pose_confidence:number; minimum_landmark_visibility:number; minimum_detection_confidence:number; maximum_shoulder_tilt:number; maximum_body_off_center:number; front_horizontal_arm_warning_degrees:number; front_arm_elevation_warning_degrees:number; advisory_only:boolean };
   file_limits: { scan_image_mb:number; daz_asset_mb:number; gam_import_mb:number; csv_import_mb:number };
   alerts: { queue_warning_depth:number; queue_critical_depth:number; worker_offline_after_seconds:number; processing_stuck_after_seconds:number; email_queue_warnings:boolean; email_system_errors:boolean };
   access: { invitation_expiry_hours:number; login_max_failed_attempts:number; login_lockout_seconds:number };
