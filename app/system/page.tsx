@@ -158,7 +158,7 @@ export default function SystemPage({ section = "overview" }: { section?: string 
       setBodyAnalyzer(e);
       setOperational({
         ...f,
-        processing: f?.processing && typeof f.processing === "object" ? f.processing : {},
+        processing: { ...(f?.processing && typeof f.processing === "object" ? f.processing : {}), photoshop_manual_step_mode: f?.processing?.photoshop_manual_step_mode === "automatic" ? "automatic" : "manual" },
         delivery: f?.delivery && typeof f.delivery === "object" ? f.delivery : {},
         file_limits: f?.file_limits && typeof f.file_limits === "object" ? f.file_limits : {},
         alerts: f?.alerts && typeof f.alerts === "object" ? f.alerts : {},
@@ -495,6 +495,32 @@ Time: {time}`};return <div key={k} className="rounded-xl border border-line bg-w
       </>);
       case "operations": return (<>
 <div id="system-operations" className="scroll-mt-5"><Card className="overflow-hidden"><div className="border-b border-line px-5 py-5 flex items-start justify-between gap-5"><div><h2 className="font-display font-semibold">Operations & calibration controls</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-ink/40">Business and operational thresholds live here instead of being buried in Python. Security and implementation safeguards remain code-controlled.</p></div><div className="flex gap-2"><button onClick={resetOperational} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55">Restore defaults</button><button onClick={saveOperational} disabled={!operational} className="rounded-lg bg-blueprint px-3 py-2 text-[11px] font-semibold text-paper disabled:opacity-40">Save operations</button></div></div>{operational && <div className="p-5 space-y-6">
+              <div className="rounded-xl border border-line bg-white p-4">
+                <div className="flex items-start justify-between gap-5">
+                  <div>
+                    <h3 className="text-xs font-semibold">Photoshop manual step</h3>
+                    <p className="mt-1 max-w-2xl text-[10px] leading-4 text-ink/40">
+                      Choose whether the pipeline pauses after Photoshop for a person to complete the manual step.
+                      Manual is the safe default; Automatic bypasses the confirmation and continues directly to Illustrator.
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 rounded-lg border border-line bg-paper p-1">
+                    {([["manual","Manual"],["automatic","Automatic"]] as const).map(([value,label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setOperational({...operational, processing:{...operational.processing, photoshop_manual_step_mode:value}})}
+                        className={`rounded-md px-3 py-1.5 text-[10px] font-semibold transition ${operational.processing.photoshop_manual_step_mode === value ? "bg-blueprint text-paper" : "text-ink/50 hover:bg-white"}`}
+                      >{label}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className={`mt-3 rounded-lg px-3 py-2 text-[10px] leading-4 ${operational.processing.photoshop_manual_step_mode === "automatic" ? "border border-amber/25 bg-amber/5 text-amber" : "border border-sage/20 bg-sage/5 text-sage"}`}>
+                  {operational.processing.photoshop_manual_step_mode === "automatic"
+                    ? "Automatic is enabled: the Photoshop stop/confirmation dialog will be bypassed and the pipeline will continue without waiting for a user."
+                    : "Manual is enabled: Photoshop will stop at the manual step and wait for the user to confirm before continuing."}
+                </div>
+              </div>
               {[
                 ["Processing", [
                   ["image_download_timeout_seconds","Image download timeout (sec)"],["processing_lease_seconds","Processing lease (sec)"],["worker_heartbeat_seconds","Worker heartbeat (sec)"],["worker_offline_after_seconds","Worker offline after (sec)"]]],

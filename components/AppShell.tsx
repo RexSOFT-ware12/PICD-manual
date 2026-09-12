@@ -248,7 +248,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <button onClick={signOut} disabled={loggingOut} title={sidebarCollapsed ? "Sign out" : undefined} className={`picd-sidebar-signout mt-4 rounded-xl py-2.5 text-[11px] font-semibold transition disabled:opacity-50 ${sidebarCollapsed ? "w-full px-2 text-center" : "px-3 text-left"}`}>{sidebarCollapsed ? "↪" : (loggingOut ? "Signing out…" : "Sign out")}</button>
         </aside>
         <main className="picd-main min-w-0 flex-1 overflow-hidden flex flex-col">
-          <header className="flex h-[68px] shrink-0 items-center justify-between border-b border-line bg-white/90 px-7 backdrop-blur-sm">
+          <header className="relative z-[100] flex h-[68px] shrink-0 items-center justify-between border-b border-line bg-white/90 px-7 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => setSidebarCollapsed(v => !v)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-white text-ink/65 shadow-sm transition hover:bg-paper">☰</button>
             </div>

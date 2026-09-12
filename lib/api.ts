@@ -596,7 +596,7 @@ export const updateSystemControl = (s: ConnectionSettings, body: {paused?:boolea
 export const updateFeatures = (s: ConnectionSettings, body: Record<string,boolean>) => postJson<SystemState>("/monitor/system/features",s,body);
 export const updateSystemConfig = (s: ConnectionSettings, body: Record<string,number>) => postJson<SystemState>("/monitor/system/config",s,body);
 export type OperationalConfig = {
-  processing: { image_download_timeout_seconds:number; processing_lease_seconds:number; worker_heartbeat_seconds:number; worker_offline_after_seconds:number };
+  processing: { image_download_timeout_seconds:number; processing_lease_seconds:number; worker_heartbeat_seconds:number; worker_offline_after_seconds:number; photoshop_manual_step_mode:"manual"|"automatic" };
   delivery: { http_timeout_seconds:number; max_attempts:number; retry_delays_seconds:number[]; pending_recovery_limit:number; automatic_delivery:boolean };
   image_qc: { minimum_brightness:number; maximum_brightness:number; minimum_contrast:number; minimum_sharpness:number; minimum_edge_ratio:number; canny_low_threshold:number; canny_high_threshold:number; minimum_pose_confidence:number; minimum_landmark_visibility:number; minimum_detection_confidence:number; maximum_shoulder_tilt:number; maximum_body_off_center:number; front_horizontal_arm_warning_degrees:number; front_arm_elevation_warning_degrees:number; advisory_only:boolean };
   file_limits: { scan_image_mb:number; daz_asset_mb:number; gam_import_mb:number; csv_import_mb:number };
