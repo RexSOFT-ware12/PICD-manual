@@ -11,7 +11,7 @@ const defaultNav = [
   { id:"dashboard", href: "/", label: "Dashboard", icon: "▦", section: "Monitor", permission: "scans.read", visible:true, order:1 },
   { id:"analytics", href: "/analytics", label: "Analytics", icon: "◒", section: "Monitor", permission: "analytics.read", visible:true, order:2 },
   { id:"reports", href: "/reports", label: "Reports", icon: "▥", section: "Monitor", permission: "analytics.read", visible:true, order:3 },
-  { id:"notifications", href: "/notifications", label: "Notifications", icon: "♢", section: "Monitor", permission: "alerts.read", visible:true, order:5 },
+  { id:"notifications", href: "/notifications", label: "Notifications", icon: "♢", section: "Monitor", permission: "alerts.read", visible:true, order:4 },
   { id:"workers", href: "/workers", label: "Workers", icon: "⚙", section: "Control", permission: "workers.read", visible:true, order:5 },
   { id:"logs", href: "/logs", label: "System logs", icon: "≡", section: "Control", permission: "logs.read", visible:true, order:6 },
   { id:"audit", href: "/audit", label: "Audit logs", icon: "✓", section: "Control", permission: "audit.read", visible:true, order:7 },
@@ -25,6 +25,28 @@ const defaultNav = [
 
 let sessionAdminCache: AuthMe | null = null;
 const ADMIN_CACHE_KEY = "picd-auth-admin";
+
+let sessionUiCache: UICustomization | null = null;
+const UI_CACHE_KEY = "picd-ui-customization";
+
+function readCachedUi(): UICustomization | null {
+  if (sessionUiCache) return sessionUiCache;
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(UI_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as UICustomization;
+    if (parsed && typeof parsed === "object") { sessionUiCache = parsed; return parsed; }
+  } catch {}
+  return null;
+}
+
+function cacheUi(ui: UICustomization) {
+  sessionUiCache = ui;
+  if (typeof window !== "undefined") {
+    try { window.sessionStorage.setItem(UI_CACHE_KEY, JSON.stringify(ui)); } catch {}
+  }
+}
 
 function readCachedAdmin(): AuthMe | null {
   if (sessionAdminCache) return sessionAdminCache;
@@ -62,7 +84,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [loggingOut, setLoggingOut] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [ui, setUi] = useState<UICustomization | null>(null);
+  const [ui, setUi] = useState<UICustomization | null>(() => sessionUiCache ?? readCachedUi());
   const settings = useMemo(() => loadSettings(), []);
 
   useEffect(() => {
@@ -102,7 +124,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!admin || !settings.baseUrl) return;
-    fetchUICustomization(settings).then(setUi).catch(() => {});
+    fetchUICustomization(settings).then((result) => { cacheUi(result); setUi(result); }).catch(() => {});
   }, [admin, settings]);
 
   // This hook must run on every render. It cannot live below the auth loading
