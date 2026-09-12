@@ -435,6 +435,26 @@ export interface AnalyticsResponse {
   monthly: AnalyticsBucket[];
 }
 
+export interface ReportDurationStats { count: number; avg_seconds: number | null; median_seconds: number | null; p95_seconds: number | null; max_seconds: number | null; }
+export interface ReportWorkerStats { throughput: number; completed: number; failed: number; failure_rate: number | null; job_duration: ReportDurationStats; }
+export interface ReportBucket { key: string; label: string; turnaround: ReportDurationStats; workers: Record<string, ReportWorkerStats>; delivery: { attempted: number; delivered: number; failed: number; retried: number; success_rate: number | null; retry_rate: number | null }; }
+export interface ReportsResponse { from: string; to: string; total_scans: number; turnaround: ReportDurationStats; workers: Record<string, ReportWorkerStats>; delivery: ReportBucket["delivery"]; daily: ReportBucket[]; weekly: ReportBucket[]; monthly: ReportBucket[]; }
+
+export async function fetchReports(settings: ConnectionSettings, from?: string, to?: string, signal?: AbortSignal) {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return request<ReportsResponse>(`/monitor/reports?${params.toString()}`, settings, signal);
+}
+
+export async function fetchReportPdf(settings: ConnectionSettings, from?: string, to?: string, signal?: AbortSignal) {
+  if (!settings.baseUrl) throw new ApiError("No backend URL configured yet.");
+  const params = new URLSearchParams(); if (from) params.set("from", from); if (to) params.set("to", to);
+  const res = await fetch(`${settings.baseUrl.replace(/\/$/, "")}/monitor/reports.pdf?${params.toString()}`, { headers: authHeaders(settings.apiKey ? { "X-API-Key": settings.apiKey } : {}), credentials: "include", cache: "no-store", signal });
+  if (!res.ok) throw new ApiError("Couldn't export the report as PDF.", res.status);
+  return res.blob();
+}
+
 export async function fetchAnalytics(
   settings: ConnectionSettings,
   from?: string,

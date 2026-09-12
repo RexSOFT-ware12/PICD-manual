@@ -10,15 +10,16 @@ import NotificationCenter from "@/components/NotificationCenter";
 const defaultNav = [
   { id:"dashboard", href: "/", label: "Dashboard", icon: "▦", section: "Monitor", permission: "scans.read", visible:true, order:1 },
   { id:"analytics", href: "/analytics", label: "Analytics", icon: "◒", section: "Monitor", permission: "analytics.read", visible:true, order:2 },
-  { id:"notifications", href: "/notifications", label: "Notifications", icon: "♢", section: "Monitor", permission: "alerts.read", visible:true, order:3 },
-  { id:"workers", href: "/workers", label: "Workers", icon: "⚙", section: "Control", permission: "workers.read", visible:true, order:4 },
-  { id:"logs", href: "/logs", label: "System logs", icon: "≡", section: "Control", permission: "logs.read", visible:true, order:5 },
-  { id:"audit", href: "/audit", label: "Audit logs", icon: "✓", section: "Control", permission: "audit.read", visible:true, order:6 },
-  { id:"gam", href: "/gam", label: "GAM", icon: "◇", section: "Control", permission: "gam.read", visible:true, order:7 },
-  { id:"csv-import", href: "/csv-import", label: "CSV importer", icon: "⇅", section: "Control", permission: "csv.read", visible:true, order:8 },
-  { id:"daz-assets", href: "/daz-assets", label: "Daz Assets", icon: "◈", section: "Control", permission: "daz.read", visible:true, order:9 },
-  { id:"system", href: "/system", label: "System settings", icon: "⌘", section: "Admin", permission: "system.read", visible:true, order:10 },
-  { id:"admins", href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage", visible:true, order:11 },
+  { id:"reports", href: "/reports", label: "Reports", icon: "▤", section: "Monitor", permission: "analytics.read", visible:true, order:3 },
+  { id:"notifications", href: "/notifications", label: "Notifications", icon: "♢", section: "Monitor", permission: "alerts.read", visible:true, order:4 },
+  { id:"workers", href: "/workers", label: "Workers", icon: "⚙", section: "Control", permission: "workers.read", visible:true, order:5 },
+  { id:"logs", href: "/logs", label: "System logs", icon: "≡", section: "Control", permission: "logs.read", visible:true, order:6 },
+  { id:"audit", href: "/audit", label: "Audit logs", icon: "✓", section: "Control", permission: "audit.read", visible:true, order:7 },
+  { id:"gam", href: "/gam", label: "GAM", icon: "◇", section: "Control", permission: "gam.read", visible:true, order:8 },
+  { id:"csv-import", href: "/csv-import", label: "CSV importer", icon: "⇅", section: "Control", permission: "csv.read", visible:true, order:9 },
+  { id:"daz-assets", href: "/daz-assets", label: "Daz Assets", icon: "◈", section: "Control", permission: "daz.read", visible:true, order:10 },
+  { id:"system", href: "/system", label: "System settings", icon: "⌘", section: "Admin", permission: "system.read", visible:true, order:11 },
+  { id:"admins", href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage", visible:true, order:12 },
 ];
 
 let sessionAdminCache: AuthMe | null = null;

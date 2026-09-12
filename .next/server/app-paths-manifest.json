@@ -23,6 +23,7 @@
   "/system/operations/page": "app/system/operations/page.js",
   "/system/sound/page": "app/system/sound/page.js",
   "/workers/page": "app/workers/page.js",
+  "/reports/page": "app/reports/page.js",
   "/daz-assets/page": "app/daz-assets/page.js",
   "/page": "app/page.js",
   "/system/page": "app/system/page.js"
