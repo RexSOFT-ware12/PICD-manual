@@ -10,13 +10,13 @@ function online(w:ProcessingWorker){return !!w.last_seen && (Date.now()-new Date
 
 export default function WorkersPage(){
  const s=loadSettings();
- const [workers,setWorkers]=useState<ProcessingWorker[]>([]),[health,setHealth]=useState<HealthResponse|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
+ const [workers,setWorkers]=useState<ProcessingWorker[]>([]),[health,setHealth]=useState<HealthResponse|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
  const [createOpen,setCreateOpen]=useState(false),[name,setName]=useState(""),[workerId,setWorkerId]=useState("");
  const [credential,setCredential]=useState<{worker:ProcessingWorker;token:string}|null>(null);
  const [copied,setCopied]=useState<"token"|"setup"|null>(null);
  const [rename,setRename]=useState<ProcessingWorker|null>(null),[renameName,setRenameName]=useState("");
  const [confirm,setConfirm]=useState<{type:"activate"|"deactivate"|"delete";worker:ProcessingWorker}|null>(null);
- const load=useCallback(async()=>{if(!s.baseUrl)return;try{const [w,h]=await Promise.all([fetchWorkers(s),fetchHealth(s)]);setWorkers(w.items);setHealth(h);setError(null)}catch(e){setError(e instanceof ApiError?e.message:"Could not load worker status.")}},[]);
+ const load=useCallback(async()=>{if(!s.baseUrl)return;try{const [w,h]=await Promise.all([fetchWorkers(s),fetchHealth(s)]);setWorkers(w.items);setHealth(h);setError(null);setLoading(false)}catch(e){setError(e instanceof ApiError?e.message:"Could not load worker status.");setLoading(false)}},[]);
  useEffect(()=>{void load();const id=setInterval(()=>void load(),5000);return()=>clearInterval(id)},[load]);
  const activeWorkers=useMemo(()=>workers.filter(w=>w.active),[workers]);
  const doAction=async(fn:()=>Promise<unknown>)=>{setBusy(true);try{await fn();await load()}catch(e){setError(e instanceof ApiError?e.message:"Worker action failed.")}finally{setBusy(false)}};
@@ -32,6 +32,7 @@ export default function WorkersPage(){
    setError("Could not copy to the clipboard. Please allow clipboard access in your browser and try again.");
   }
  };
+ if (loading) return <AppShell><div className="h-full overflow-y-auto bg-paper px-8 py-7"><div className="mx-auto max-w-7xl"><div className="mb-6"><div className="h-3 w-24 animate-pulse rounded bg-ink/[.06]"/><div className="mt-3 h-9 w-44 animate-pulse rounded bg-ink/[.07]"/><div className="mt-2 h-3 w-80 animate-pulse rounded bg-ink/[.045]"/></div><div className="grid grid-cols-[1.3fr_.7fr] gap-5"><div className="rounded-2xl border border-line bg-white p-5"><div className="h-5 w-36 animate-pulse rounded bg-ink/[.06]"/><div className="mt-5 space-y-3">{Array.from({length:5}).map((_,i)=><div key={i} className="h-14 animate-pulse rounded-xl bg-ink/[.035]"/>)}</div></div><div className="rounded-2xl border border-line bg-white p-5"><div className="h-5 w-32 animate-pulse rounded bg-ink/[.06]"/><div className="mt-5 h-32 animate-pulse rounded-xl bg-ink/[.035]"/><div className="mt-3 h-10 animate-pulse rounded-xl bg-ink/[.035]"/></div></div></div></div></AppShell>;
  return <AppShell><div className="h-full overflow-y-auto bg-paper px-8 py-6"><div className="mx-auto max-w-7xl">
   <header className="mb-6 flex items-end justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-ink/30">Control</p><h1 className="mt-1 font-display text-3xl font-semibold">Processing workers</h1><p className="mt-1 text-sm text-ink/45">Manage every Photoshop / Illustrator / DAZ computer from one place.</p></div><div className="flex gap-2"><button onClick={()=>setCreateOpen(true)} className="rounded-xl bg-blueprint px-4 py-2.5 text-xs font-semibold text-paper">＋ Add worker</button><button onClick={()=>void load()} className="rounded-xl border border-line bg-white px-4 py-2.5 text-xs font-semibold text-ink/60 shadow-sm">Refresh</button></div></header>
   {error&&<div className="mb-5 rounded-xl border border-brick/20 bg-brick/10 px-4 py-3 text-sm text-brick">{error}</div>}

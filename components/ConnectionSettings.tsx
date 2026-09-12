@@ -71,10 +71,11 @@ export default function ConnectionSettingsPanel({
               onSave({ baseUrl: baseUrl.trim(), apiKey: "" });
               setOpen(false);
             }}
-            className="w-full rounded bg-amber py-1.5 text-xs font-medium text-ink transition-all hover:brightness-110 active:scale-[0.98]"
+            className="w-full rounded bg-amber py-1.5 text-xs font-medium text-ink transition hover:brightness-110"
           >
             Save & reconnect
           </button>
+          <p className="mt-3 break-all rounded-lg bg-white/5 px-2.5 py-2 font-mono text-[10px] text-paper/60">{baseUrl || "No backend URL configured"}</p>
           <p className="mt-3 text-[11px] leading-relaxed text-paper/40">
             The dashboard uses a secure server session after sign-in. Point it at your backend URL
             (Cloudflare Tunnel / ngrok / Tailscale Funnel) — a Mac on your

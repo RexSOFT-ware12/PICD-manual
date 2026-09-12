@@ -175,14 +175,4 @@ button:focus-visible, input:focus-visible, [role="button"]:focus-visible {
 .picd-sidebar-link.is-active { background: var(--picd-sidebar-active-bg, #315f9f) !important; color: var(--picd-sidebar-active-text, #fff) !important; }
 .picd-sidebar-link.is-active:hover { background: var(--picd-sidebar-active-bg, #315f9f) !important; color: var(--picd-sidebar-active-text, #fff) !important; }
 
-/* Sidebar links should not flash/animate a different color while being clicked. */
-.picd-sidebar-link:active,
-.picd-sidebar-link:focus:not(:focus-visible) {
-  background: transparent;
-  color: var(--picd-sidebar-muted, rgba(243,242,237,.55));
-}
-.picd-sidebar-link.is-active:active,
-.picd-sidebar-link.is-active:focus:not(:focus-visible) {
-  background: var(--picd-sidebar-active-bg, #315f9f) !important;
-  color: var(--picd-sidebar-active-text, #fff) !important;
-}
+@keyframes diagnostic-scan { 0%,100% { transform: scaleX(.08); opacity:.25 } 50% { transform: scaleX(1); opacity:1 } }

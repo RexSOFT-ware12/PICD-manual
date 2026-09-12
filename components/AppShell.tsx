@@ -10,16 +10,17 @@ import NotificationCenter from "@/components/NotificationCenter";
 const defaultNav = [
   { id:"dashboard", href: "/", label: "Dashboard", icon: "▦", section: "Monitor", permission: "scans.read", visible:true, order:1 },
   { id:"analytics", href: "/analytics", label: "Analytics", icon: "◒", section: "Monitor", permission: "analytics.read", visible:true, order:2 },
-  { id:"notifications", href: "/notifications", label: "Notifications", icon: "♢", section: "Monitor", permission: "alerts.read", visible:true, order:3 },
-  { id:"workers", href: "/workers", label: "Workers", icon: "⚙", section: "Control", permission: "workers.read", visible:true, order:4 },
-  { id:"logs", href: "/logs", label: "System logs", icon: "≡", section: "Control", permission: "logs.read", visible:true, order:5 },
-  { id:"audit", href: "/audit", label: "Audit logs", icon: "✓", section: "Control", permission: "audit.read", visible:true, order:6 },
-  { id:"gam", href: "/gam", label: "GAM", icon: "◇", section: "Control", permission: "gam.read", visible:true, order:7 },
-  { id:"collections", href: "/collections", label: "Collections", icon: "▤", section: "Control", permission: "collections.read", visible:true, order:8 },
-  { id:"csv-import", href: "/csv-import", label: "CSV importer", icon: "⇅", section: "Control", permission: "csv.read", visible:true, order:9 },
-  { id:"daz-assets", href: "/daz-assets", label: "Daz Assets", icon: "◈", section: "Control", permission: "daz.read", visible:true, order:10 },
-  { id:"system", href: "/system", label: "System settings", icon: "⌘", section: "Admin", permission: "system.read", visible:true, order:11 },
-  { id:"admins", href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage", visible:true, order:12 },
+  { id:"reports", href: "/reports", label: "Reports", icon: "▥", section: "Monitor", permission: "analytics.read", visible:true, order:3 },
+  { id:"notifications", href: "/notifications", label: "Notifications", icon: "♢", section: "Monitor", permission: "alerts.read", visible:true, order:5 },
+  { id:"workers", href: "/workers", label: "Workers", icon: "⚙", section: "Control", permission: "workers.read", visible:true, order:5 },
+  { id:"logs", href: "/logs", label: "System logs", icon: "≡", section: "Control", permission: "logs.read", visible:true, order:6 },
+  { id:"audit", href: "/audit", label: "Audit logs", icon: "✓", section: "Control", permission: "audit.read", visible:true, order:7 },
+  { id:"gam", href: "/gam", label: "GAM", icon: "◇", section: "Control", permission: "gam.read", visible:true, order:8 },
+  { id:"collections", href: "/collections", label: "Collections", icon: "▤", section: "Control", permission: "collections.read", visible:true, order:9 },
+  { id:"csv-import", href: "/csv-import", label: "CSV importer", icon: "⇅", section: "Control", permission: "csv.read", visible:true, order:10 },
+  { id:"daz-assets", href: "/daz-assets", label: "Daz Assets", icon: "◈", section: "Control", permission: "daz.read", visible:true, order:11 },
+  { id:"system", href: "/system", label: "System settings", icon: "⌘", section: "Admin", permission: "system.read", visible:true, order:12 },
+  { id:"admins", href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage", visible:true, order:13 },
 ];
 
 let sessionAdminCache: AuthMe | null = null;
@@ -109,7 +110,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // authentication changes and React throws minified error #310.
   const [activeSetting, setActiveSetting] = useState("overview");
   const rawNavigation = Array.isArray(ui?.navigation) ? ui.navigation : [];
-  const navigation = (rawNavigation.length ? rawNavigation : defaultNav)
+  const navigation = [...defaultNav.map(base => { const saved = rawNavigation.find(x => x.id === base.id); return saved ? { ...base, ...saved } : base; }), ...rawNavigation.filter(x => !defaultNav.some(base => base.id === x.id))]
     .filter((item): item is typeof defaultNav[number] => !!item && typeof item === "object" && typeof item.href === "string" && typeof item.id === "string")
     .map((item, index) => ({
       ...item,
@@ -120,7 +121,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       visible: item.visible !== false,
       order: Number.isFinite(Number(item.order)) ? Number(item.order) : index + 1,
     }))
-    .sort((a,b) => a.order - b.order);
+    .sort((a,b) => a.order - b.order || String(a.id).localeCompare(String(b.id)));
   const theme = ui?.theme;
   // Keep concrete theme shapes even while the customization request is loading.
   // Using {} here widens the type and makes strict TypeScript builds fail on property access.
@@ -199,7 +200,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
     { id: "global", label: "Global Variables", icon: "⌁", permission: "system.read" },
     { id: "appearance", label: "Appearance & Navigation", icon: "▤", permission: "system.read" },
     { id: "general", label: "Connection & Runtime", icon: "⚙", permission: "system.read" },
-    { id: "access", label: "Users & Access", icon: "♙", permission: "system.read" },
     { id: "database", label: "Database", icon: "▥", permission: "system.read" },
     { id: "logs", label: "Diagnostics & Logs", icon: "≡", permission: "system.read" },
   ];
@@ -222,7 +222,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <aside className={`picd-sidebar flex h-full shrink-0 flex-col py-5 transition-[width] duration-200 ${sidebarCollapsed ? "px-2" : "px-4"}`} style={{width:`${sidebarCollapsed ? 72 : (Number(sidebarTheme.width_px) || 248)}px`}}>
           <Link href="/" title="PICDs" className={`picd-sidebar-brand mb-7 block ${sidebarCollapsed ? "px-0 text-center" : "px-3"}`}><p className="font-display text-xl font-semibold leading-tight">{sidebarCollapsed ? "P" : "PICDs"}</p>{!sidebarCollapsed && <p className="mt-1 text-xs text-paper/45">Measurement pipeline</p>}</Link>
           
-          <nav ref={navScrollRef} className="flex-1 overflow-y-auto scrollbar-thin" onScroll={rememberNavScroll}>{regularNav.map(item => { const heading=item.section!==lastSection; lastSection=item.section; const active=pathname===item.href || (item.href!=="/" && pathname.startsWith(item.href)); return <div key={item.href}>{heading&&!sidebarCollapsed&&<p className="picd-sidebar-section mb-2 mt-4 px-3 text-[9px] font-bold uppercase tracking-[.18em]">{item.section}</p>}<Link href={item.href} title={sidebarCollapsed ? item.label : undefined} onClick={rememberNavScroll} className={`picd-sidebar-link mb-1 flex items-center rounded-xl py-2.5 text-xs font-medium ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${active?"is-active":""}`}><span className="w-4 shrink-0 text-center text-sm opacity-80">{item.icon}</span>{!sidebarCollapsed&&<span>{item.label}</span>}{active&&!sidebarCollapsed&&<span className="ml-auto h-1.5 w-1.5 rounded-full bg-blueprint"/>}</Link></div>; })}{can("system.read") && <div className="mt-4"><p className={`picd-sidebar-section mb-2 text-[9px] font-bold uppercase tracking-[.18em] ${sidebarCollapsed ? "text-center" : "px-3"}`}>{sidebarCollapsed ? "S" : "Settings"}</p><div className="space-y-1">{[["Notifications",settingsItems.filter(x=>["email","sound"].includes(x.id))],["Processing",settingsItems.filter(x=>["operations","features","estimate","body","global"].includes(x.id))],["Workspace",settingsItems.filter(x=>["appearance","general"].includes(x.id))],["Access & Data",settingsItems.filter(x=>["access","database"].includes(x.id))],["Diagnostics",settingsItems.filter(x=>x.id==="logs")]].map(([group,items]) => <div key={String(group)}>{!sidebarCollapsed&&<p className="px-3 pb-1 pt-2 text-[9px] font-bold uppercase tracking-[.13em] text-paper/35">{String(group)}</p>}<div>{(items as typeof settingsItems).map(x => <Link key={x.id} href={`/system/${x.id}`} title={sidebarCollapsed ? x.label : undefined} onClick={rememberNavScroll} className={`picd-sidebar-link mb-1 flex items-center rounded-xl py-2.5 text-xs font-medium ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${settingsOpen && activeSetting === x.id ? "is-active" : ""}`}><span className="w-4 shrink-0 text-center text-sm opacity-80">{x.icon}</span>{!sidebarCollapsed&&<span>{x.label}</span>}{settingsOpen && activeSetting === x.id && !sidebarCollapsed && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-blueprint"/>}</Link>)}</div></div>)}</div></div>}</nav>
+          <nav ref={navScrollRef} className="flex-1 overflow-y-auto scrollbar-thin" onScroll={rememberNavScroll}>{regularNav.map(item => { const heading=item.section!==lastSection; lastSection=item.section; const active=pathname===item.href || (item.href!=="/" && pathname.startsWith(item.href)); return <div key={item.href}>{heading&&!sidebarCollapsed&&<p className="picd-sidebar-section mb-2 mt-4 px-3 text-[9px] font-bold uppercase tracking-[.18em]">{item.section}</p>}<Link href={item.href} title={sidebarCollapsed ? item.label : undefined} onClick={rememberNavScroll} onMouseDown={e=>e.preventDefault()} className={`picd-sidebar-link mb-1 flex items-center rounded-xl py-2.5 text-xs font-medium select-none ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${active?"is-active":""}`}><span className="w-4 shrink-0 text-center text-sm opacity-80">{item.icon}</span>{!sidebarCollapsed&&<span>{item.label}</span>}{active&&!sidebarCollapsed&&<span className="ml-auto h-1.5 w-1.5 rounded-full bg-blueprint"/>}</Link></div>; })}{can("system.read") && <div className="mt-4"><p className={`picd-sidebar-section mb-2 text-[9px] font-bold uppercase tracking-[.18em] ${sidebarCollapsed ? "text-center" : "px-3"}`}>{sidebarCollapsed ? "S" : "Settings"}</p><div className="space-y-1">{[["Notifications",settingsItems.filter(x=>["email","sound"].includes(x.id))],["Processing",settingsItems.filter(x=>["operations","features","estimate","body","global"].includes(x.id))],["Workspace",settingsItems.filter(x=>["appearance","general"].includes(x.id))],["Data",settingsItems.filter(x=>x.id==="database")],["Diagnostics",settingsItems.filter(x=>x.id==="logs")]].map(([group,items]) => <div key={String(group)}>{!sidebarCollapsed&&<p className="px-3 pb-1 pt-2 text-[9px] font-bold uppercase tracking-[.13em] text-paper/35">{String(group)}</p>}<div>{(items as typeof settingsItems).map(x => <Link key={x.id} href={`/system/${x.id}`} title={sidebarCollapsed ? x.label : undefined} onClick={rememberNavScroll} onMouseDown={e=>e.preventDefault()} className={`picd-sidebar-link mb-1 flex items-center rounded-xl py-2.5 text-xs font-medium select-none ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${settingsOpen && activeSetting === x.id ? "is-active" : ""}`}><span className="w-4 shrink-0 text-center text-sm opacity-80">{x.icon}</span>{!sidebarCollapsed&&<span>{x.label}</span>}{settingsOpen && activeSetting === x.id && !sidebarCollapsed && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-blueprint"/>}</Link>)}</div></div>)}</div></div>}</nav>
           <button onClick={signOut} disabled={loggingOut} title={sidebarCollapsed ? "Sign out" : undefined} className={`picd-sidebar-signout mt-4 rounded-xl py-2.5 text-[11px] font-semibold transition disabled:opacity-50 ${sidebarCollapsed ? "w-full px-2 text-center" : "px-3 text-left"}`}>{sidebarCollapsed ? "↪" : (loggingOut ? "Signing out…" : "Sign out")}</button>
         </aside>
         <main className="picd-main min-w-0 flex-1 overflow-hidden flex flex-col">
