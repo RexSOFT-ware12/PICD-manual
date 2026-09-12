@@ -15,10 +15,11 @@ const defaultNav = [
   { id:"logs", href: "/logs", label: "System logs", icon: "≡", section: "Control", permission: "logs.read", visible:true, order:5 },
   { id:"audit", href: "/audit", label: "Audit logs", icon: "✓", section: "Control", permission: "audit.read", visible:true, order:6 },
   { id:"gam", href: "/gam", label: "GAM", icon: "◇", section: "Control", permission: "gam.read", visible:true, order:7 },
-  { id:"csv-import", href: "/csv-import", label: "CSV importer", icon: "⇅", section: "Control", permission: "csv.read", visible:true, order:8 },
-  { id:"daz-assets", href: "/daz-assets", label: "Daz Assets", icon: "◈", section: "Control", permission: "daz.read", visible:true, order:9 },
-  { id:"system", href: "/system", label: "System settings", icon: "⌘", section: "Admin", permission: "system.read", visible:true, order:10 },
-  { id:"admins", href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage", visible:true, order:11 },
+  { id:"collections", href: "/collections", label: "Collections", icon: "▤", section: "Control", permission: "collections.read", visible:true, order:8 },
+  { id:"csv-import", href: "/csv-import", label: "CSV importer", icon: "⇅", section: "Control", permission: "csv.read", visible:true, order:9 },
+  { id:"daz-assets", href: "/daz-assets", label: "Daz Assets", icon: "◈", section: "Control", permission: "daz.read", visible:true, order:10 },
+  { id:"system", href: "/system", label: "System settings", icon: "⌘", section: "Admin", permission: "system.read", visible:true, order:11 },
+  { id:"admins", href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage", visible:true, order:12 },
 ];
 
 let sessionAdminCache: AuthMe | null = null;
@@ -225,7 +226,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <button onClick={signOut} disabled={loggingOut} title={sidebarCollapsed ? "Sign out" : undefined} className={`picd-sidebar-signout mt-4 rounded-xl py-2.5 text-[11px] font-semibold transition disabled:opacity-50 ${sidebarCollapsed ? "w-full px-2 text-center" : "px-3 text-left"}`}>{sidebarCollapsed ? "↪" : (loggingOut ? "Signing out…" : "Sign out")}</button>
         </aside>
         <main className="picd-main min-w-0 flex-1 overflow-hidden flex flex-col">
-          <header className="relative z-50 flex h-[68px] shrink-0 items-center justify-between border-b border-line bg-white/90 px-7 backdrop-blur-sm">
+          <header className="flex h-[68px] shrink-0 items-center justify-between border-b border-line bg-white/90 px-7 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => setSidebarCollapsed(v => !v)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-white text-ink/65 shadow-sm transition hover:bg-paper">☰</button>
             </div>

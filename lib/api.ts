@@ -739,3 +739,20 @@ export async function deleteWorker(s: ConnectionSettings, workerId: string) {
   if (!res.ok) { let detail=`Backend returned ${res.status}`; try { const b=await res.json(); if(typeof b?.detail === "string") detail=b.detail; } catch {} throw new ApiError(detail,res.status); }
   return res.json() as Promise<{ok:boolean}>;
 }
+
+export type DatabaseCollection = { name:string; rows:number; sample_count:number };
+export type DatabaseCollectionRow = { id:string; data:Record<string, unknown> };
+export type DatabaseCollectionList = { collection:string; items:DatabaseCollectionRow[]; total:number; skip:number; limit:number; columns:string[] };
+export const fetchCollections = (s: ConnectionSettings) => request<{collections:DatabaseCollection[]}>('/monitor/collections', s);
+export const fetchCollection = (s: ConnectionSettings, collection:string, opts:{q?:string;skip?:number;limit?:number}={}) => {
+  const p=new URLSearchParams(); if(opts.q)p.set('q',opts.q); p.set('skip',String(opts.skip??0)); p.set('limit',String(opts.limit??100));
+  return request<DatabaseCollectionList>(`/monitor/collections/${encodeURIComponent(collection)}?${p}`,s);
+};
+export const createCollectionRow = (s: ConnectionSettings, collection:string, data:Record<string,unknown>) => postJson<DatabaseCollectionRow>(`/monitor/collections/${encodeURIComponent(collection)}`,s,data);
+export const updateCollectionRow = (s: ConnectionSettings, collection:string, id:string, data:Record<string,unknown>) => patchJson<DatabaseCollectionRow>(`/monitor/collections/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`,s,{data});
+export async function deleteCollectionRow(s:ConnectionSettings, collection:string, id:string){
+  if(!s.baseUrl) throw new ApiError('No backend URL configured yet.');
+  const res=await fetch(`${s.baseUrl.replace(/\/$/,'')}/monitor/collections/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`,{method:'DELETE',credentials:'include',headers:authHeaders(s.apiKey?{'X-API-Key':s.apiKey}:{}),cache:'no-store'});
+  if(!res.ok){let detail=`Backend returned ${res.status}`;try{const b=await res.json();if(typeof b?.detail==='string')detail=b.detail;}catch{}throw new ApiError(detail,res.status)}
+  return res.json() as Promise<{ok:boolean}>;
+}
