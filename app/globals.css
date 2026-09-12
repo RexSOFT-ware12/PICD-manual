@@ -169,3 +169,8 @@ button:focus-visible, input:focus-visible, [role="button"]:focus-visible {
 .picd-theme-root .bg-white { background-color: var(--picd-page-surface, #fff); }
 .picd-theme-root .bg-paper { background-color: var(--picd-page-bg, #f3f2ed); }
 .picd-theme-root .border-line { border-color: var(--picd-page-border, #dad7cc); }
+/* Unified sidebar navigation: only the selected row changes appearance. */
+.picd-sidebar { transition: width .2s ease; }
+.picd-sidebar-link { min-height: 40px; }
+.picd-sidebar-link.is-active { background: var(--picd-sidebar-active-bg, #315f9f) !important; color: var(--picd-sidebar-active-text, #fff) !important; }
+.picd-sidebar-link.is-active:hover { background: var(--picd-sidebar-active-bg, #315f9f) !important; color: var(--picd-sidebar-active-text, #fff) !important; }
