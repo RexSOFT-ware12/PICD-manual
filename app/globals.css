@@ -169,6 +169,13 @@ button:focus-visible, input:focus-visible, [role="button"]:focus-visible {
 .picd-theme-root .bg-white { background-color: var(--picd-page-surface, #fff); }
 .picd-theme-root .bg-paper { background-color: var(--picd-page-bg, #f3f2ed); }
 .picd-theme-root .border-line { border-color: var(--picd-page-border, #dad7cc); }
+
+/* Header notification popover: keep it above page cards/tables on every route.
+   AppShell's header is its own high stacking context and the content area scrolls
+   underneath it, so the dropdown cannot be clipped by workspace/page content. */
+.picd-notification-trigger { color: var(--picd-page-text, #1b2430); }
+.picd-notification-trigger + * { z-index: 1000; }
+
 /* Unified sidebar navigation: only the selected row changes appearance. */
 .picd-sidebar { transition: width .2s ease; }
 .picd-sidebar-link { min-height: 40px; }

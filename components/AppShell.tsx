@@ -130,6 +130,20 @@ export default function AppShell({ children }: { children: ReactNode }) {
     fetchUICustomization(settings).then((result) => { cacheUi(result); setUi(result); }).catch(() => {});
   }, [admin, settings]);
 
+  // Appearance & Navigation saves happen on the settings page while AppShell
+  // remains mounted. Listen for the saved payload so the new theme is applied
+  // immediately on every route instead of waiting for a full page reload.
+  useEffect(() => {
+    const onUiUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<UICustomization>).detail;
+      if (!detail || typeof detail !== "object") return;
+      cacheUi(detail);
+      setUi(detail);
+    };
+    window.addEventListener("picd-ui-customization-updated", onUiUpdated);
+    return () => window.removeEventListener("picd-ui-customization-updated", onUiUpdated);
+  }, []);
+
   // This hook must run on every render. It cannot live below the auth loading
   // return, otherwise the shell renders a different number/order of hooks when
   // authentication changes and React throws minified error #310.
@@ -250,8 +264,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <nav ref={navScrollRef} className="flex-1 overflow-y-auto scrollbar-thin" onScroll={rememberNavScroll}>{regularNav.map(item => { const heading=item.section!==lastSection; lastSection=item.section; const active=pathname===item.href || (item.href!=="/" && pathname.startsWith(item.href)); return <div key={item.href}>{heading&&!sidebarCollapsed&&<p className="picd-sidebar-section mb-2 mt-4 px-3 text-[9px] font-bold uppercase tracking-[.18em]">{item.section}</p>}<Link href={item.href} title={sidebarCollapsed ? item.label : undefined} onClick={rememberNavScroll} onMouseDown={e=>e.preventDefault()} className={`picd-sidebar-link mb-1 flex items-center rounded-xl py-2.5 text-xs font-medium select-none ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${active?"is-active":""}`}><span className="w-4 shrink-0 text-center text-sm opacity-80">{item.icon}</span>{!sidebarCollapsed&&<span>{item.label}</span>}{active&&!sidebarCollapsed&&<span className="ml-auto h-1.5 w-1.5 rounded-full bg-blueprint"/>}</Link></div>; })}{can("system.read") && <div className="mt-4"><p className={`picd-sidebar-section mb-2 text-[9px] font-bold uppercase tracking-[.18em] ${sidebarCollapsed ? "text-center" : "px-3"}`}>{sidebarCollapsed ? "S" : "Settings"}</p><div className="space-y-1">{[["Notifications",settingsItems.filter(x=>["email","sound"].includes(x.id))],["Processing",settingsItems.filter(x=>["operations","features","estimate","body","global"].includes(x.id))],["Workspace",settingsItems.filter(x=>["appearance","general"].includes(x.id))],["Data",settingsItems.filter(x=>x.id==="database")],["Diagnostics",settingsItems.filter(x=>x.id==="logs")]].map(([group,items]) => <div key={String(group)}>{!sidebarCollapsed&&<p className="px-3 pb-1 pt-2 text-[9px] font-bold uppercase tracking-[.13em] text-paper/35">{String(group)}</p>}<div>{(items as typeof settingsItems).map(x => <Link key={x.id} href={`/system/${x.id}`} title={sidebarCollapsed ? x.label : undefined} onClick={rememberNavScroll} onMouseDown={e=>e.preventDefault()} className={`picd-sidebar-link mb-1 flex items-center rounded-xl py-2.5 text-xs font-medium select-none ${sidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"} ${settingsOpen && activeSetting === x.id ? "is-active" : ""}`}><span className="w-4 shrink-0 text-center text-sm opacity-80">{x.icon}</span>{!sidebarCollapsed&&<span>{x.label}</span>}{settingsOpen && activeSetting === x.id && !sidebarCollapsed && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-blueprint"/>}</Link>)}</div></div>)}</div></div>}</nav>
           <button onClick={signOut} disabled={loggingOut} title={sidebarCollapsed ? "Sign out" : undefined} className={`picd-sidebar-signout mt-4 rounded-xl py-2.5 text-[11px] font-semibold transition disabled:opacity-50 ${sidebarCollapsed ? "w-full px-2 text-center" : "px-3 text-left"}`}>{sidebarCollapsed ? "↪" : (loggingOut ? "Signing out…" : "Sign out")}</button>
         </aside>
-        <main className="picd-main min-w-0 flex-1 overflow-hidden flex flex-col">
-          <header className="flex h-[68px] shrink-0 items-center justify-between border-b border-line bg-white/90 px-7 backdrop-blur-sm">
+        <main className="picd-main relative z-0 min-w-0 flex-1 overflow-visible flex flex-col">
+          <header className="relative z-[100] flex h-[68px] shrink-0 items-center justify-between border-b border-line bg-white/90 px-7 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => setSidebarCollapsed(v => !v)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-white text-ink/65 shadow-sm transition hover:bg-paper">☰</button>
             </div>
@@ -274,7 +288,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </div>
             </div>
           </header>
-          <div className="min-h-0 flex-1">{children}</div>
+          <div className="min-h-0 flex-1 overflow-auto">{children}</div>
         </main>
       </div>
     </>

@@ -222,6 +222,10 @@ export default function SystemPage({ section = "overview" }: { section?: string 
       const navigation = uiCustomization.navigation.map((item, i) => ({ ...item, order: i + 1 }));
       const saved = await updateUICustomization(loadSettings(), { ...uiCustomization, navigation });
       setUiCustomization(saved);
+      // AppShell stays mounted while this settings route saves. Broadcast the
+      // server-confirmed configuration so the theme/navigation changes are
+      // applied immediately everywhere without a hard refresh.
+      window.dispatchEvent(new CustomEvent("picd-ui-customization-updated", { detail: saved }));
       setUiCustomizationMessage("Saved successfully. Your appearance and navigation settings are now active.");
       setUiCustomizationSaved(true);
       window.setTimeout(() => setUiCustomizationSaved(false), 2200);
@@ -235,7 +239,12 @@ export default function SystemPage({ section = "overview" }: { section?: string 
   const resetUiCustomization = async () => {
     setUiCustomizationMessage(null);
     setUiCustomizationSaved(false);
-    try { setUiCustomization(await updateUICustomization(loadSettings(), { _reset: true })); setUiCustomizationMessage("Default sidebar and theme restored."); }
+    try {
+      const restored = await updateUICustomization(loadSettings(), { _reset: true });
+      setUiCustomization(restored);
+      window.dispatchEvent(new CustomEvent("picd-ui-customization-updated", { detail: restored }));
+      setUiCustomizationMessage("Default sidebar and theme restored.");
+    }
     catch (e) { setUiCustomizationMessage(e instanceof ApiError ? e.message : "Could not restore sidebar and theme defaults."); }
   };
 
