@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   fetchScans,
   fetchStats,
@@ -31,7 +32,6 @@ import Column from "@/components/Column";
 import AppShell from "@/components/AppShell";
 import ConfirmModal from "@/components/ConfirmModal";
 import { loadNotificationSound, playCardMoveSound } from "@/lib/notificationSound";
-import router from "next/router";
 
 type BoardStatus = ScanStatus | "delivered";
 const STATUS_ORDER: { key: BoardStatus; label: string }[] = [
@@ -95,7 +95,13 @@ function formatAgo(last: Date | null, now: number): string {
   return `${diffMin}m ago`;
 }
 
+function errorMessage(e: unknown, fallback: string): string {
+  if (e instanceof ApiError || e instanceof Error) return e.message;
+  return fallback;
+}
+
 export default function Home() {
+  const router = useRouter();
   const [settings, setSettings] = useState<Settings>({ baseUrl: "", apiKey: "" });
   const [ready, setReady] = useState(false);
   const [stats, setStats] = useState<StatsResponse | null>(null);
@@ -299,7 +305,7 @@ export default function Home() {
         await refresh(settings);
       }
     } catch (e) {
-      setTriggerMessage(e instanceof ApiError ? e.message : "Could not release the next scan.");
+      setTriggerMessage(errorMessage(e, "Could not release the next scan."));
     } finally {
       setTriggering(false);
     }
@@ -331,7 +337,7 @@ export default function Home() {
           await refresh(settings);
         }
       } catch (e) {
-        setTriggerMessage(e instanceof ApiError ? e.message : "Could not release the selected scan.");
+        setTriggerMessage(errorMessage(e, "Could not release the selected scan."));
       } finally { setMovingScan(null); }
       return;
     }

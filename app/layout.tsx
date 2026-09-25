@@ -25,6 +25,9 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "PICDs",
   description: "PICDs measurement pipeline control center",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
