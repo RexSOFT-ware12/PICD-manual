@@ -322,6 +322,7 @@ export default function Workspace() {
         "--duf-right-width": `${Math.max(260, Math.min(520, Number(dufCustomization.right_panel_width) || 330))}px`,
         "--duf-topbar-height": dufCustomization.show_topbar ? "46px" : "0px",
         "--duf-status-height": dufCustomization.show_statusbar ? "28px" : "0px",
+        // Raw DUF theme variables.
         "--duf-bg": dufCustomization.theme?.bg || DEFAULT_DUF_THEME.bg,
         "--duf-panel": dufCustomization.theme?.panel || DEFAULT_DUF_THEME.panel,
         "--duf-panel-2": dufCustomization.theme?.panel_2 || DEFAULT_DUF_THEME.panel_2,
@@ -335,6 +336,23 @@ export default function Workspace() {
         "--duf-ok": dufCustomization.theme?.ok || DEFAULT_DUF_THEME.ok,
         "--duf-warning": dufCustomization.theme?.warning || DEFAULT_DUF_THEME.warning,
         "--duf-error": dufCustomization.theme?.error || DEFAULT_DUF_THEME.error,
+        // Also define the semantic variables on the actual DUF root. CSS
+        // custom properties declared on .picd-duf-scope are computed before
+        // the .app theme variables exist, so they cannot see the selected
+        // values unless these aliases are defined here as well.
+        "--bg": dufCustomization.theme?.bg || DEFAULT_DUF_THEME.bg,
+        "--panel": dufCustomization.theme?.panel || DEFAULT_DUF_THEME.panel,
+        "--panel-2": dufCustomization.theme?.panel_2 || DEFAULT_DUF_THEME.panel_2,
+        "--raised": dufCustomization.theme?.raised || DEFAULT_DUF_THEME.raised,
+        "--line": dufCustomization.theme?.line || DEFAULT_DUF_THEME.line,
+        "--text": dufCustomization.theme?.text || DEFAULT_DUF_THEME.text,
+        "--muted": dufCustomization.theme?.muted || DEFAULT_DUF_THEME.muted,
+        "--accent": dufCustomization.theme?.accent || DEFAULT_DUF_THEME.accent,
+        "--accent-ink": dufCustomization.theme?.accent_ink || DEFAULT_DUF_THEME.accent_ink,
+        "--skeleton": dufCustomization.theme?.warning || DEFAULT_DUF_THEME.warning,
+        "--ok": dufCustomization.theme?.ok || DEFAULT_DUF_THEME.ok,
+        "--miss": dufCustomization.theme?.error || DEFAULT_DUF_THEME.error,
+        "--info": dufCustomization.theme?.accent || DEFAULT_DUF_THEME.accent,
       } as CSSProperties}
       onDragEnter={(e) => {
         e.preventDefault();

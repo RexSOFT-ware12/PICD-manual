@@ -172,16 +172,4 @@
 .picd-duf-scope{height:100%}
 .picd-duf-scope .app{height:100%}
 
-
-/* Appearance & Navigation semantic palette for DUF Preview. */
-.picd-duf-scope .topbar,.picd-duf-scope .statusbar{background:color-mix(in srgb,var(--picd-workspace-surface,#1d2129) 90%,var(--picd-workspace-accent,#315f9f));border-color:var(--picd-workspace-border,#313847)}
-.picd-duf-scope .panel{background:color-mix(in srgb,var(--picd-workspace-surface,#1d2129) 88%,var(--picd-workspace-bg,#161920));border-color:var(--picd-workspace-border,#313847)}
-.picd-duf-scope .panel-title,.picd-duf-scope .tabs-row{border-color:var(--picd-workspace-border,#313847)}
-.picd-duf-scope .btn:not(.primary),.picd-duf-scope .seg,.picd-duf-scope .chip{background:color-mix(in srgb,var(--picd-workspace-surface,#1d2129) 75%,var(--picd-workspace-accent,#315f9f));border-color:var(--picd-workspace-border,#313847)}
-.picd-duf-scope .btn.primary{background:var(--picd-workspace-accent,#315f9f);border-color:var(--picd-workspace-accent,#315f9f);color:var(--picd-workspace-surface,#fff)}
-.picd-duf-scope .viewport{background:radial-gradient(120% 90% at 50% 38%,color-mix(in srgb,var(--picd-workspace-surface,#444c5b) 80%,var(--picd-workspace-accent,#315f9f)) 0,color-mix(in srgb,var(--picd-workspace-bg,#2c323d) 86%,var(--picd-workspace-accent,#315f9f)) 55%,var(--picd-workspace-bg,#20242c) 100%)}
-.picd-duf-scope .hint,.picd-duf-scope .doc,.picd-duf-scope .statusbar,.picd-duf-scope .slider-name.is-missing{color:var(--picd-workspace-muted,#8f98a8)}
-.picd-duf-scope .tree-row.is-selected{background:color-mix(in srgb,var(--picd-workspace-accent,#315f9f) 24%,transparent)}
-.picd-duf-scope .tree-dot,.picd-duf-scope .brand-mark::after{background:var(--picd-workspace-accent,#315f9f)}
-.picd-duf-scope .seg button[aria-pressed=true],.picd-duf-scope .status.ok{color:var(--picd-workspace-success,#72c791)}
-.picd-duf-scope .status.miss{color:var(--picd-workspace-error,#e58a7a)}
+/* DUF Preview intentionally uses only its own DUF Studio theme variables. */
