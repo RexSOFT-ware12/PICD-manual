@@ -54,17 +54,28 @@
 
 /* layout */
 .picd-duf-scope .main { display: grid; grid-template-columns: 250px minmax(0, 1fr) 330px; min-height: 0; }
+.picd-duf-scope .main.left-collapsed { grid-template-columns: 32px minmax(0, 1fr) 330px; }
+.picd-duf-scope .main.right-collapsed { grid-template-columns: 250px minmax(0, 1fr) 32px; }
+.picd-duf-scope .main.left-collapsed.right-collapsed { grid-template-columns: 32px minmax(0, 1fr) 32px; }
 .picd-duf-scope .panel { display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
 .picd-duf-scope .panel.left { border-right: 1px solid var(--line); }
 .picd-duf-scope .panel.right { border-left: 1px solid var(--line); }
-.picd-duf-scope .panel-title { padding: 10px 12px 0; font-weight: 650; }
+.picd-duf-scope .panel-title { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 0; font-weight: 650; }
+.picd-duf-scope .tabs-row { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+.picd-duf-scope .panel-collapse { display: grid; place-items: center; padding: 4px; border: 0; border-radius: 4px; background: none; color: var(--muted); cursor: pointer; flex-shrink: 0; }
+.picd-duf-scope .panel-collapse:hover { background: var(--panel-2); color: var(--text); }
+.picd-duf-scope .tabs-row .panel-collapse { margin: 0 6px; }
+.picd-duf-scope .panel-reopen { display: flex; align-items: flex-start; justify-content: center; padding-top: 10px; border: 0; background: var(--panel); color: var(--muted); cursor: pointer; }
+.picd-duf-scope .panel-reopen:hover { background: var(--panel-2); color: var(--text); }
+.picd-duf-scope .panel-reopen.left { border-right: 1px solid var(--line); }
+.picd-duf-scope .panel-reopen.right { border-left: 1px solid var(--line); }
 .picd-duf-scope .panel-body { padding: 10px 12px 16px; overflow: auto; min-height: 0; flex: 1; }
 .picd-duf-scope .panel-body section { margin-bottom: 16px; }
 .picd-duf-scope .hint { color: var(--muted); }
 .picd-duf-scope .meta { display: block; color: var(--muted); font-size: 12px; margin: 0 0 4px; }
 .picd-duf-scope .empty { color: var(--muted); padding: 8px; }
 
-.picd-duf-scope .tabs { display: flex; border-bottom: 1px solid var(--line); }
+.picd-duf-scope .tabs { display: flex; flex: 1; min-width: 0; border-bottom: 0; }
 .picd-duf-scope .tabs button { flex: 1; padding: 10px 4px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); }
 .picd-duf-scope .tabs button:hover { color: var(--text); }
 .picd-duf-scope .tabs button.is-active { color: var(--text); border-bottom-color: var(--accent); font-weight: 650; }

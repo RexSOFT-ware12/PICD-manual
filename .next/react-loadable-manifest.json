@@ -3,8 +3,8 @@
     "id": 7686,
     "files": [
       "static/chunks/b536a0f1.32592d1401b98862.js",
-      "static/chunks/2691.a240ca78b57ce33e.js",
-      "static/chunks/7686.1da31a16526be473.js"
+      "static/chunks/1822.3d88068c3c8b8ef4.js",
+      "static/chunks/7686.273236cfa8652557.js"
     ]
   },
   "app/illustrator/page.tsx -> @/components/IllustratorEditor": {

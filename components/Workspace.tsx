@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
 import Viewport from "./Viewport";
 import OutlinerPanel from "./panels/OutlinerPanel";
 import PosePanel from "./panels/PosePanel";
@@ -50,6 +51,8 @@ export default function Workspace() {
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [libraryReady, setLibraryReady] = useState(false);
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
 
   const solverRef = useRef<ShapeSolver | null>(null);
   const rawRef = useRef<ParsedDaz>({ geometries: [], skins: [], morphs: [], uvSets: [], nodes: [], formulas: [] });
@@ -312,15 +315,26 @@ export default function Workspace() {
         </div>
       </header>
 
-      <div className="main">
-        <aside className="panel left" aria-label="Scene outliner">
-          <div className="panel-title">Scene</div>
-          {model ? (
-            <OutlinerPanel model={model} selected={selected} showDetail={view.detail} onSelect={setSelected} posedIds={posedIds} />
-          ) : (
-            <div className="panel-body"><p className="hint">The scene tree appears here.</p></div>
-          )}
-        </aside>
+      <div className={`main${leftOpen ? "" : " left-collapsed"}${rightOpen ? "" : " right-collapsed"}`}>
+        {leftOpen ? (
+          <aside className="panel left" aria-label="Scene outliner">
+            <div className="panel-title">
+              <span>Scene</span>
+              <button className="panel-collapse" onClick={() => setLeftOpen(false)} aria-label="Collapse scene panel" title="Collapse panel">
+                <PanelLeftClose size={14} />
+              </button>
+            </div>
+            {model ? (
+              <OutlinerPanel model={model} selected={selected} showDetail={view.detail} onSelect={setSelected} posedIds={posedIds} />
+            ) : (
+              <div className="panel-body"><p className="hint">The scene tree appears here.</p></div>
+            )}
+          </aside>
+        ) : (
+          <button className="panel-reopen left" onClick={() => setLeftOpen(true)} aria-label="Expand scene panel" title="Scene">
+            <PanelLeftOpen size={15} />
+          </button>
+        )}
 
         <main className="stage-wrap">
           <div className="viewport">
@@ -363,53 +377,64 @@ export default function Workspace() {
           </div>
         </main>
 
-        <aside className="panel right" aria-label="Inspector">
-          <div className="tabs" role="tablist">
-            {TABS.map((t) => (
-              <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? "is-active" : ""} onClick={() => setTab(t.id)}>
-                {t.label}
+        {rightOpen ? (
+          <aside className="panel right" aria-label="Inspector">
+            <div className="tabs-row">
+              <div className="tabs" role="tablist">
+                {TABS.map((t) => (
+                  <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? "is-active" : ""} onClick={() => setTab(t.id)}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <button className="panel-collapse" onClick={() => setRightOpen(false)} aria-label="Collapse inspector" title="Collapse panel">
+                <PanelRightClose size={14} />
               </button>
-            ))}
-          </div>
-          {model ? (
-            <>
-              {tab === "pose" && (
-                <PosePanel
-                  model={model}
-                  selected={selected}
-                  pose={pose}
-                  invertRotation={view.invertRotation}
-                  onInvertRotation={(v) => setView((o) => ({ ...o, invertRotation: v }))}
-                  onChange={changeBone}
-                  onSelect={setSelected}
-                  onResetToFile={resetPose}
-                  onZero={zeroPose}
-                />
-              )}
-              {tab === "shape" && (
-                <ShapePanel morphs={model.morphs} values={morphValues} available={availableMorphs} onChange={changeMorph} onReset={resetMorphs} />
-              )}
-              {tab === "surfaces" && <SurfacesPanel model={model} report={report} />}
-              {tab === "file" && <InfoPanel model={model} />}
-            </>
-          ) : (
-            tab !== "content" && <div className="panel-body"><p className="hint">Open a file to inspect it.</p></div>
-          )}
-          {tab === "content" && (
-            <ContentPanel
-              report={report}
-              fileCount={registry.count}
-              busy={busy}
-              onFiles={(f) => void handleEntries(fromFileList(f))}
-              onClear={() => {
-                void registry.clear().then(() => {
-                  setAssetVersion((v) => v + 1);
-                  setMessage("Removed the saved content library.");
-                });
-              }}
-            />
-          )}
-        </aside>
+            </div>
+            {model ? (
+              <>
+                {tab === "pose" && (
+                  <PosePanel
+                    model={model}
+                    selected={selected}
+                    pose={pose}
+                    invertRotation={view.invertRotation}
+                    onInvertRotation={(v) => setView((o) => ({ ...o, invertRotation: v }))}
+                    onChange={changeBone}
+                    onSelect={setSelected}
+                    onResetToFile={resetPose}
+                    onZero={zeroPose}
+                  />
+                )}
+                {tab === "shape" && (
+                  <ShapePanel morphs={model.morphs} values={morphValues} available={availableMorphs} onChange={changeMorph} onReset={resetMorphs} />
+                )}
+                {tab === "surfaces" && <SurfacesPanel model={model} report={report} />}
+                {tab === "file" && <InfoPanel model={model} />}
+              </>
+            ) : (
+              tab !== "content" && <div className="panel-body"><p className="hint">Open a file to inspect it.</p></div>
+            )}
+            {tab === "content" && (
+              <ContentPanel
+                report={report}
+                fileCount={registry.count}
+                busy={busy}
+                onFiles={(f) => void handleEntries(fromFileList(f))}
+                onClear={() => {
+                  void registry.clear().then(() => {
+                    setAssetVersion((v) => v + 1);
+                    setMessage("Removed the saved content library.");
+                  });
+                }}
+              />
+            )}
+          </aside>
+        ) : (
+          <button className="panel-reopen right" onClick={() => setRightOpen(true)} aria-label="Expand inspector" title="Inspector">
+            <PanelRightOpen size={15} />
+          </button>
+        )}
       </div>
 
       <footer className="statusbar" role="status">
