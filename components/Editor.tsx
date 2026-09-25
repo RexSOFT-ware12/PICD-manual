@@ -139,13 +139,21 @@ async function runSegmentation(src: HTMLCanvasElement, onStatus: (m: string) => 
     input.getContext("2d")!.drawImage(src, 0, 0, input.width, input.height);
   }
   const blob = await new Promise<Blob>((res, rej) => input.toBlob(b => (b ? res(b) : rej(new Error("Could not read image pixels"))), "image/png"));
-  // v1.7 exposes removeBackground as a named export. Falling back to the
-  // module object/default export caused the production error "s is not a function".
-  const { removeBackground } = await import("@imgly/background-removal");
+  // Next 14 cannot safely bundle the current IMG.LY/ONNX ESM graph. Load
+  // the official browser ESM build directly so the AI model and WASM runtime
+  // execute in the browser instead of being stubbed by webpack.
+  const loadModule = new Function(
+    "url",
+    "return import(url)"
+  ) as (url: string) => Promise<any>;
+  const mod = await loadModule(
+    "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm"
+  );
+  const removeBackground = mod.removeBackground ?? mod.default;
   if (typeof removeBackground !== "function") throw new Error("The AI background-removal module did not load correctly.");
   const out: Blob = await removeBackground(blob, {
     model: "isnet_fp16",
-    output: { format: "image/png" },
+    output: { format: "image/png", type: "foreground" },
     progress: (key: string, cur: number, total: number) => {
       const pct = total ? Math.round((cur / total) * 100) : 0;
       onStatus(String(key).startsWith("fetch") ? `Downloading AI model… ${pct}%` : `Detecting subject… ${pct}%`);

@@ -12,6 +12,8 @@ import {
   deleteScan,
   loadSettings,
   saveSettings,
+  fetchOperationalConfig,
+  startWebProcessing,
   ApiError,
   isAbortError,
   type ScanStatus,
@@ -29,6 +31,7 @@ import Column from "@/components/Column";
 import AppShell from "@/components/AppShell";
 import ConfirmModal from "@/components/ConfirmModal";
 import { loadNotificationSound, playCardMoveSound } from "@/lib/notificationSound";
+import router from "next/router";
 
 type BoardStatus = ScanStatus | "delivered";
 const STATUS_ORDER: { key: BoardStatus; label: string }[] = [
@@ -281,9 +284,20 @@ export default function Home() {
     setTriggering(true);
     setTriggerMessage(null);
     try {
-      const result = await triggerNextScan(settings);
-      setTriggerMessage(`Released ${result.scan_id.slice(0, 8)}… for processing`);
-      await refresh(settings);
+      const operational = await fetchOperationalConfig(settings);
+      if (operational.processing.editor_mode === "web") {
+        const queued = await fetchScans(settings, { status: "queued", limit: 1, skip: 0 });
+        const next = queued.scans?.[0];
+        if (!next) throw new ApiError("No queued scan is available.");
+        const result = await startWebProcessing(settings, next.scan_id);
+        setTriggerMessage("Opening Photo Workspace → Artwork for the next scan…");
+        await refresh(settings);
+        router.push(`/photo-workspace?pipeline=${encodeURIComponent(result.scan_id)}`);
+      } else {
+        const result = await triggerNextScan(settings);
+        setTriggerMessage(`Released ${result.scan_id.slice(0, 8)}… for processing`);
+        await refresh(settings);
+      }
     } catch (e) {
       setTriggerMessage(e instanceof ApiError ? e.message : "Could not release the next scan.");
     } finally {
@@ -301,11 +315,21 @@ export default function Home() {
       setMovingScan(scanId);
       setTriggerMessage(null);
       try {
-        const result = await processSelectedScan(settings, scanId);
-        recentMoveRef.current.set(scanId, Date.now());
-        playCardMoveSound(loadNotificationSound());
-        setTriggerMessage(result.message ?? `Released ${scanId.slice(0, 8)}… for processing`);
-        await refresh(settings);
+        const operational = await fetchOperationalConfig(settings);
+        if (operational.processing.editor_mode === "web") {
+          const result = await startWebProcessing(settings, scanId);
+          recentMoveRef.current.set(scanId, Date.now());
+          playCardMoveSound(loadNotificationSound());
+          setTriggerMessage("Opening Photo Workspace → Artwork for this scan…");
+          await refresh(settings);
+          router.push(`/photo-workspace?pipeline=${encodeURIComponent(result.scan_id)}`);
+        } else {
+          const result = await processSelectedScan(settings, scanId);
+          recentMoveRef.current.set(scanId, Date.now());
+          playCardMoveSound(loadNotificationSound());
+          setTriggerMessage(result.message ?? `Released ${scanId.slice(0, 8)}… for processing`);
+          await refresh(settings);
+        }
       } catch (e) {
         setTriggerMessage(e instanceof ApiError ? e.message : "Could not release the selected scan.");
       } finally { setMovingScan(null); }

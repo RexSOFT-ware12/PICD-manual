@@ -600,7 +600,7 @@ export const updateSystemControl = (s: ConnectionSettings, body: {paused?:boolea
 export const updateFeatures = (s: ConnectionSettings, body: Record<string,boolean>) => postJson<SystemState>("/monitor/system/features",s,body);
 export const updateSystemConfig = (s: ConnectionSettings, body: Record<string,number>) => postJson<SystemState>("/monitor/system/config",s,body);
 export type OperationalConfig = {
-  processing: { image_download_timeout_seconds:number; processing_lease_seconds:number; worker_heartbeat_seconds:number; worker_offline_after_seconds:number };
+  processing: { photoshop_timeout_seconds:number; illustrator_timeout_seconds:number; daz_timeout_seconds:number; image_download_timeout_seconds:number; processing_lease_seconds:number; worker_heartbeat_seconds:number; worker_offline_after_seconds:number; editor_mode:"desktop"|"web" };
   delivery: { http_timeout_seconds:number; max_attempts:number; retry_delays_seconds:number[]; pending_recovery_limit:number; automatic_delivery:boolean };
   image_qc: { gemini_enabled:boolean; gemini_model:string; minimum_brightness:number; maximum_brightness:number; minimum_contrast:number; minimum_sharpness:number; minimum_resolution_px:number; minimum_edge_ratio:number; canny_low_threshold:number; canny_high_threshold:number; minimum_pose_confidence:number; minimum_landmark_visibility:number; minimum_detection_confidence:number; maximum_shoulder_tilt:number; maximum_body_off_center:number; front_horizontal_arm_warning_degrees:number; front_arm_elevation_warning_degrees:number; advisory_only:boolean };
   file_limits: { scan_image_mb:number; daz_asset_mb:number; gam_import_mb:number; csv_import_mb:number };
@@ -609,6 +609,55 @@ export type OperationalConfig = {
   agent_runtime: { root_path:string; processed_images_dir:string; resized_images_dir:string; scans_archive_dir:string; global_vars_filename:string; photoshop_psd_dir:string; illustrator_svg_dir:string; daz_assets_dir:string; front_filename:string; side_filename:string; psd_filename:string; svg_filename:string; duf_filename:string; resize_width:number; resize_height:number };
   data_sources: { gam_workbook:string; gam_master_csv:string; base_shapes_csv:string; apple_gam_csv:string; hour_glass_gam_csv:string };
 };
+
+
+export interface WebProcessingStartResponse {
+  scan_id: string;
+  mode: "web";
+  photo_workspace_url: string;
+  artwork_url: string;
+  front_image_url: string | null;
+  side_image_url: string | null;
+}
+
+export interface WebProcessingCompleteResponse {
+  scan_id: string;
+  status: ScanStatus;
+  message: string;
+}
+
+export async function startWebProcessing(settings: ConnectionSettings, scanId: string): Promise<WebProcessingStartResponse> {
+  return postJson<WebProcessingStartResponse>(`/monitor/scans/${encodeURIComponent(scanId)}/web-start`, settings, {});
+}
+
+export async function uploadWebArtifact(
+  settings: ConnectionSettings,
+  scanId: string,
+  svg: string
+): Promise<{ scan_id:string; status: ScanStatus; message:string }> {
+  return postJson<{ scan_id:string; status: ScanStatus; message:string }>(
+    `/monitor/scans/${encodeURIComponent(scanId)}/web-artifact`,
+    settings,
+    { svg }
+  );
+}
+
+export async function completeWebProcessing(
+  settings: ConnectionSettings,
+  scanId: string,
+  svg: string
+): Promise<WebProcessingCompleteResponse> {
+  return postJson<WebProcessingCompleteResponse>(
+    `/monitor/scans/${encodeURIComponent(scanId)}/web-complete`,
+    settings,
+    { svg }
+  );
+}
+
+export async function fetchWebArtifact(settings: ConnectionSettings, scanId: string): Promise<{ scan_id:string; svg:string }> {
+  return request<{ scan_id:string; svg:string }>(`/monitor/scans/${encodeURIComponent(scanId)}/web-artifact`, settings);
+}
+
 export const fetchOperationalConfig = (s: ConnectionSettings) => request<OperationalConfig>("/monitor/system/operational-config", s);
 export const updateOperationalConfig = (s: ConnectionSettings, body: OperationalConfig | { _reset:boolean }) => postJson<OperationalConfig>("/monitor/system/operational-config", s, body);
 

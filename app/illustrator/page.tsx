@@ -2,6 +2,8 @@
 
 import dynamic from "next/dynamic";
 import AppShell from "@/components/AppShell";
+import WebPipelineStage from "@/components/WebPipelineStage";
+import { useEffect, useState } from "react";
 
 const IllustratorEditor = dynamic(() => import("@/components/IllustratorEditor"), {
   ssr: false,
@@ -13,10 +15,14 @@ const IllustratorEditor = dynamic(() => import("@/components/IllustratorEditor")
 });
 
 export default function ArtworkPage() {
+  const [pipeline, setPipeline] = useState<string | null>(null);
+  useEffect(() => {
+    setPipeline(new URLSearchParams(window.location.search).get("pipeline"));
+  }, []);
   return (
     <AppShell>
       <div className="picd-creative-scope h-full min-h-0 overflow-hidden">
-        <IllustratorEditor />
+        {pipeline ? <WebPipelineStage scanId={pipeline} stage="artwork" /> : <IllustratorEditor />}
       </div>
     </AppShell>
   );

@@ -18,13 +18,7 @@
     "id": 9275,
     "files": [
       "static/chunks/6656.0603e1dc35d40e7f.js",
-      "static/chunks/9275.319b5b1f8d12bb79.js"
-    ]
-  },
-  "components/Editor.tsx -> @imgly/background-removal": {
-    "id": 6341,
-    "files": [
-      "static/chunks/6341.ea8f3145583b4d4f.js"
+      "static/chunks/9275.230f219988fb973b.js"
     ]
   }
 }
