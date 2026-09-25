@@ -14,6 +14,7 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
   children,
+  alertMode = false,
 }: {
   open: boolean;
   title: string;
@@ -25,6 +26,7 @@ export default function ConfirmModal({
   onConfirm: () => void;
   onCancel: () => void;
   children?: ReactNode;
+  alertMode?: boolean;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -53,7 +55,7 @@ export default function ConfirmModal({
           {children}
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-line bg-white/70 px-6 py-4">
-          <button disabled={busy} onClick={onCancel} className="rounded-xl border border-line bg-white px-4 py-2.5 text-xs font-semibold text-ink/60 hover:border-ink/20 disabled:opacity-40">{cancelLabel}</button>
+          {!alertMode && <button disabled={busy} onClick={onCancel} className="rounded-xl border border-line bg-white px-4 py-2.5 text-xs font-semibold text-ink/60 hover:border-ink/20 disabled:opacity-40">{cancelLabel}</button>}
           <button disabled={busy} onClick={onConfirm} className={`rounded-xl px-4 py-2.5 text-xs font-semibold text-paper shadow-sm disabled:opacity-40 ${tone === "danger" ? "bg-brick" : "bg-blueprint"}`}>{busy ? "Working…" : confirmLabel}</button>
         </div>
       </div>

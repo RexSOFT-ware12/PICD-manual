@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
+import ConfirmModal from "@/components/ConfirmModal";
 import Viewport from "./Viewport";
 import OutlinerPanel from "./panels/OutlinerPanel";
 import PosePanel from "./panels/PosePanel";
@@ -53,6 +54,7 @@ export default function Workspace() {
   const [libraryReady, setLibraryReady] = useState(false);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
+  const [dialog, setDialog] = useState<{title:string;message:string;tone:"default"|"danger";onConfirm?:()=>void}|null>(null);
 
   const solverRef = useRef<ShapeSolver | null>(null);
   const rawRef = useRef<ParsedDaz>({ geometries: [], skins: [], morphs: [], uvSets: [], nodes: [], formulas: [] });
@@ -422,9 +424,16 @@ export default function Workspace() {
                 busy={busy}
                 onFiles={(f) => void handleEntries(fromFileList(f))}
                 onClear={() => {
-                  void registry.clear().then(() => {
-                    setAssetVersion((v) => v + 1);
-                    setMessage("Removed the saved content library.");
+                  setDialog({
+                    title: "Clear saved content library?",
+                    message: "This removes the saved Daz content files from this browser. Your current open scene is not deleted.",
+                    tone: "danger",
+                    onConfirm: () => {
+                      void registry.clear().then(() => {
+                        setAssetVersion((v) => v + 1);
+                        setMessage("Removed the saved content library.");
+                      });
+                    },
                   });
                 }}
               />
@@ -444,6 +453,8 @@ export default function Workspace() {
           {stats.bones} bones
         </span>
       </footer>
+      <ConfirmModal open={!!dialog} alertMode={!dialog?.onConfirm} title={dialog?.title||"DUF Preview"} message={dialog?.message||""} tone={dialog?.tone||"default"} confirmLabel="Confirm" onCancel={()=>setDialog(null)} onConfirm={()=>{const action=dialog?.onConfirm;setDialog(null);action?.();}} />
+
     </div>
   );
 }

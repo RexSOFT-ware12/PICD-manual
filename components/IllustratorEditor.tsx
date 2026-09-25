@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import ConfirmModal from "@/components/ConfirmModal";
 import {
   MousePointer2, PenTool, Pencil, Square, Circle, Minus, Type, Hand,
   ZoomIn, ZoomOut, Upload, Download, Undo2, Redo2, Trash2, Copy,
@@ -26,12 +27,12 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-function defaultDoc(): Doc {
+function defaultDoc(accent = "#315f9f"): Doc {
   return {
     width: ART_W, height: ART_H, background: "#ffffff",
     items: [
-      { id: uid(), name: "Rectangle", kind: "rect", x: 150, y: 150, width: 360, height: 230, rotation: 0, fill: "#2f80ed", stroke: "#1765c0", strokeWidth: 2, opacity: 1, visible: true, gradient: { enabled: false, from: "#2f80ed", to: "#9b51e0", angle: 45 } },
-      { id: uid(), name: "Circle", kind: "ellipse", x: 650, y: 160, width: 210, height: 210, rotation: 0, fill: "#f2994a", stroke: "#c96a1b", strokeWidth: 2, opacity: 1, visible: true, gradient: { enabled: false, from: "#f2994a", to: "#eb5757", angle: 45 } },
+      { id: uid(), name: "Rectangle", kind: "rect", x: 150, y: 150, width: 360, height: 230, rotation: 0, fill: accent, stroke: "color-mix(in srgb, " + accent + " 72%, #000)", strokeWidth: 2, opacity: 1, visible: true, gradient: { enabled: false, from: accent, to: "color-mix(in srgb, " + accent + " 35%, #fff)", angle: 45 } },
+      { id: uid(), name: "Circle", kind: "ellipse", x: 650, y: 160, width: 210, height: 210, rotation: 0, fill: "color-mix(in srgb, " + accent + " 62%, #fff)", stroke: accent, strokeWidth: 2, opacity: 1, visible: true, gradient: { enabled: false, from: "color-mix(in srgb, " + accent + " 62%, #fff)", to: accent, angle: 45 } },
     ]
   };
 }
@@ -107,17 +108,17 @@ function rasterTrace(src: string, threshold = 240): Promise<string> {
 }
 
 export default function IllustratorEditor() {
-  const [doc,setDoc]=useState<Doc>(defaultDoc); const [history,setHistory]=useState<Doc[]>([]); const [future,setFuture]=useState<Doc[]>([]);
+  const [themeAccent,setThemeAccent]=useState("#315f9f"); const [doc,setDoc]=useState<Doc>(()=>defaultDoc("#315f9f")); const [history,setHistory]=useState<Doc[]>([]); const [future,setFuture]=useState<Doc[]>([]);
   const [tool,setTool]=useState<Tool>("select"); const [selected,setSelected]=useState<string|null>(null); const [zoom,setZoom]=useState(0.72);
   const [fill,setFill]=useState("#2f80ed"); const [stroke,setStroke]=useState("#111827"); const [strokeWidth,setStrokeWidth]=useState(2); const [opacity,setOpacity]=useState(100);
   const [drag,setDrag]=useState<{id:string;ox:number;oy:number;startX:number;startY:number}|null>(null); const [drawing,setDrawing]=useState<Point[]>([]);
-  const [status,setStatus]=useState("Ready"); const [traceMode,setTraceMode]=useState(false); const fileRef=useRef<HTMLInputElement>(null); const svgRef=useRef<SVGSVGElement>(null); const workspaceRef=useRef<HTMLDivElement>(null);
+  const [status,setStatus]=useState("Ready"); const [traceMode,setTraceMode]=useState(false); const [dialog,setDialog]=useState<{title:string;message:string;tone:"default"|"danger";onConfirm?:()=>void}|null>(null); const fileRef=useRef<HTMLInputElement>(null); const svgRef=useRef<SVGSVGElement>(null); const workspaceRef=useRef<HTMLDivElement>(null);
   const current=doc.items.find(i=>i.id===selected)||null;
 
   const commit=(next:Doc)=>{setHistory(h=>[...h.slice(-39),clone(doc)]);setFuture([]);setDoc(next)};
   const update=(id:string,patch:Partial<Item>)=>commit({...doc,items:doc.items.map(i=>i.id===id?{...i,...patch}:i)});
   const add=(item:Item)=>{commit({...doc,items:[...doc.items,item]});setSelected(item.id)};
-  const remove=()=>{if(!selected)return;commit({...doc,items:doc.items.filter(i=>i.id!==selected)});setSelected(null)};
+  const remove=()=>{if(!selected)return;const item=doc.items.find(i=>i.id===selected);if(!item)return;setDialog({title:"Delete artwork object?",message:`Delete “${item.name}” from this artwork? This can be undone with Undo.`,tone:"danger",onConfirm:()=>{commit({...doc,items:doc.items.filter(i=>i.id!==selected)});setSelected(null);}})};
   const undo=()=>{if(!history.length)return; const h=[...history];const prev=h.pop()!;setFuture(f=>[clone(doc),...f]);setDoc(prev);setHistory(h);setSelected(null)};
   const redo=()=>{if(!future.length)return;const [n,...rest]=future;setHistory(h=>[...h,clone(doc)]);setDoc(n);setFuture(rest);setSelected(null)};
 
@@ -156,6 +157,25 @@ export default function IllustratorEditor() {
   const openProject=(f:File)=>{const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(String(r.result));if(d.items){commit(d);setStatus("Project opened")}}catch{setStatus("Invalid PICD project")}};r.readAsText(f)};
   const tracePNG=async(f:File)=>{const r=new FileReader();r.onload=async()=>{setStatus("Tracing PNG…");const svg=await rasterTrace(String(r.result));download(f.name.replace(/\.[^.]+$/,"")+"-trace.svg",svg);setStatus("Vector trace exported");setTraceMode(false)};r.readAsDataURL(f)};
 
+  useEffect(()=>{
+    const root=document.querySelector(".picd-theme-root") as HTMLElement|null;
+    if(!root)return;
+    const read=()=>{const v=getComputedStyle(root).getPropertyValue("--picd-page-accent").trim();if(v)setThemeAccent(v)};
+    read();
+    const observer=new MutationObserver(read); observer.observe(root,{attributes:true,attributeFilter:["style"]});
+    return()=>observer.disconnect();
+  },[]);
+  useEffect(()=>{
+    setFill(v=>v==="#2f80ed"||v==="#315f9f"?themeAccent:v);
+    setStroke(v=>v==="#111827"?themeAccent:v);
+    setDoc(d=>({...d,items:d.items.map(i=>{
+      if(i.fill==="#2f80ed") return {...i,fill:themeAccent,stroke:themeAccent};
+      if(typeof i.fill==="string" && i.fill.startsWith("color-mix(in srgb, #315f9f")) return {...i,fill:`color-mix(in srgb, ${themeAccent} 62%, #fff)`,stroke:themeAccent};
+      if(i.stroke==="#1765c0") return {...i,stroke:themeAccent};
+      return i;
+    })}));
+  },[themeAccent]);
+
   useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="z"){e.preventDefault();e.shiftKey?redo():undo()} else if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="s"){e.preventDefault();exportSVG()} else if(e.key==="Delete"||e.key==="Backspace")remove(); else if(e.key.toLowerCase()==="v")setTool("select"); else if(e.key.toLowerCase()==="p")setTool("pen"); else if(e.key.toLowerCase()==="t")setTool("text")};window.addEventListener("keydown",onKey);return()=>window.removeEventListener("keydown",onKey)},[doc,history,future,selected]);
 
   const tools:[Tool,string,any,string][]=[ ["select","Selection",MousePointer2,"V"],["direct","Direct",Crosshair,"A"],["pen","Pen",PenTool,"P"],["pencil","Pencil",Pencil,"N"],["rect","Rectangle",Square,"M"],["ellipse","Ellipse",Circle,"L"],["line","Line",Minus,"\\"],["text","Type",Type,"T"],["hand","Hand",Hand,"H"] ];
@@ -164,14 +184,14 @@ export default function IllustratorEditor() {
       <nav>{["File","Edit","Object","Type","Select","View","Window"].map(x=><button key={x}>{x}</button>)}</nav>
       <div className="ai-top-actions"><button onClick={()=>fileRef.current?.click()}><Upload size={14}/> Import</button><button onClick={saveProject}><Save size={14}/> Save</button><button className="ai-primary" onClick={exportSVG}><Download size={14}/> Export SVG</button></div>
     </header>
-    <div className="ai-controlbar"><button onClick={()=>{setDoc(defaultDoc());setSelected(null);setStatus("New document")}}><FilePlus2 size={14}/> New</button><button onClick={undo} disabled={!history.length}><Undo2 size={14}/></button><button onClick={redo} disabled={!future.length}><Redo2 size={14}/></button><span className="sep"/><label>Fill <input type="color" value={fill} onChange={e=>{setFill(e.target.value);if(current)update(current.id,{fill:e.target.value})}}/></label><label>Stroke <input type="color" value={stroke} onChange={e=>{setStroke(e.target.value);if(current)update(current.id,{stroke:e.target.value})}}/></label><label>W <input className="num" type="number" min="0" value={strokeWidth} onChange={e=>{const v=+e.target.value;setStrokeWidth(v);if(current)update(current.id,{strokeWidth:v})}}/></label><label>Opacity <input type="range" min="0" max="100" value={opacity} onChange={e=>{const v=+e.target.value;setOpacity(v);if(current)update(current.id,{opacity:v/100})}}/></label><div className="zoom"><button onClick={()=>setZoom(z=>Math.max(.25,z-.1))}><ZoomOut size={14}/></button><b>{Math.round(zoom*100)}%</b><button onClick={()=>setZoom(z=>Math.min(2,z+.1))}><ZoomIn size={14}/></button></div></div>
+    <div className="ai-controlbar"><button onClick={()=>{setDialog({title:"Create a new artwork?",message:"This replaces the current artwork with a new document. Save the current project first if you need it.",tone:"danger",onConfirm:()=>{commit(defaultDoc(themeAccent));setSelected(null);setStatus("New document")}})}}><FilePlus2 size={14}/> New</button><button onClick={undo} disabled={!history.length}><Undo2 size={14}/></button><button onClick={redo} disabled={!future.length}><Redo2 size={14}/></button><span className="sep"/><label>Fill <input type="color" value={fill} onChange={e=>{setFill(e.target.value);if(current)update(current.id,{fill:e.target.value})}}/></label><label>Stroke <input type="color" value={stroke} onChange={e=>{setStroke(e.target.value);if(current)update(current.id,{stroke:e.target.value})}}/></label><label>W <input className="num" type="number" min="0" value={strokeWidth} onChange={e=>{const v=+e.target.value;setStrokeWidth(v);if(current)update(current.id,{strokeWidth:v})}}/></label><label>Opacity <input type="range" min="0" max="100" value={opacity} onChange={e=>{const v=+e.target.value;setOpacity(v);if(current)update(current.id,{opacity:v/100})}}/></label><div className="zoom"><button onClick={()=>setZoom(z=>Math.max(.25,z-.1))}><ZoomOut size={14}/></button><b>{Math.round(zoom*100)}%</b><button onClick={()=>setZoom(z=>Math.min(2,z+.1))}><ZoomIn size={14}/></button></div></div>
     <div className="ai-workspace">
       <aside className="ai-left"><div className="ai-panel-title">TOOLS</div><div className="ai-tool-grid">{tools.map(([id,label,Icon,key])=><button key={id} className={tool===id?"on":""} onClick={()=>id==="text"?addText():setTool(id)} title={`${label} (${key})`}><Icon size={19}/><span>{label}</span><small>{key}</small></button>)}</div><div className="ai-panel-title lower">OBJECT</div><div className="ai-side-actions"><button disabled={!selected} onClick={duplicate}><Copy size={14}/> Duplicate</button><button disabled={!selected} onClick={bringFront}>Bring Front</button><button disabled={!selected} onClick={sendBack}>Send Back</button><button disabled={!selected} onClick={()=>update(selected!,{rotation:(current?.rotation||0)+90})}><RotateCcw size={14}/> Rotate 90°</button><button disabled={!selected} onClick={()=>update(selected!,{width:current!.width,rotation:current!.rotation+0})}>Transform</button></div><div className="ai-panel-title lower">IMAGE TRACE</div><div className="traceBox"><p>Convert raster artwork into an SVG trace.</p><button onClick={()=>{setTraceMode(true);setStatus("Choose a PNG to trace")}}><Wand2 size={14}/> Trace PNG</button><button onClick={()=>{setStatus("Choose a PNG, then use Trace PNG")}} className="ghost">How it works</button></div></aside>
       <main className="ai-canvas" ref={workspaceRef}><div className="canvas-grid"><div className="artboard-label">ARTBOARD 01 · {doc.width} × {doc.height}</div><svg ref={svgRef} className="ai-svg" width={doc.width} height={doc.height} viewBox={`0 0 ${doc.width} ${doc.height}`} style={{width:doc.width*zoom,height:doc.height*zoom}} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerLeave={pointerUp}>
         <defs>{doc.items.filter(i=>i.gradient?.enabled).map(i=><linearGradient key={i.id} id={`g-${i.id}`} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={i.gradient?.from}/><stop offset="100%" stopColor={i.gradient?.to}/></linearGradient>)}</defs>
         <rect width={doc.width} height={doc.height} fill={doc.background}/>
         {doc.items.map(i=>{if(!i.visible)return null;const selectedNow=i.id===selected;const common={opacity:i.opacity}; if(i.kind==="rect")return <rect key={i.id} x={i.x} y={i.y} width={i.width} height={i.height} fill={i.gradient?.enabled?`url(#g-${i.id})`:i.fill} stroke={i.stroke} strokeWidth={i.strokeWidth} transform={`rotate(${i.rotation} ${i.x+i.width/2} ${i.y+i.height/2})`} {...common} onPointerDown={e=>{e.stopPropagation();setSelected(i.id)}}/>; if(i.kind==="ellipse")return <ellipse key={i.id} cx={i.x+i.width/2} cy={i.y+i.height/2} rx={i.width/2} ry={i.height/2} fill={i.fill} stroke={i.stroke} strokeWidth={i.strokeWidth} transform={`rotate(${i.rotation} ${i.x+i.width/2} ${i.y+i.height/2})`} {...common} onPointerDown={e=>{e.stopPropagation();setSelected(i.id)}}/>; if(i.kind==="line")return <line key={i.id} x1={i.points?.[0].x} y1={i.points?.[0].y} x2={i.points?.[1].x} y2={i.points?.[1].y} stroke={i.stroke} strokeWidth={i.strokeWidth} {...common} onPointerDown={e=>{e.stopPropagation();setSelected(i.id)}}/>; if(i.kind==="path")return <polyline key={i.id} points={(i.points||[]).map(p=>`${p.x},${p.y}`).join(" ")} fill="none" stroke={i.stroke} strokeWidth={i.strokeWidth} strokeLinecap="round" strokeLinejoin="round" {...common} onPointerDown={e=>{e.stopPropagation();setSelected(i.id)}}/>; if(i.kind==="text")return <text key={i.id} x={i.x} y={i.y+(i.fontSize||48)} fill={i.fill} fontFamily={i.fontFamily} fontSize={i.fontSize} opacity={i.opacity} transform={`rotate(${i.rotation} ${i.x} ${i.y})`} onPointerDown={e=>{e.stopPropagation();setSelected(i.id)}}>{i.text}</text>; if(i.kind==="image")return <image key={i.id} href={i.href} x={i.x} y={i.y} width={i.width} height={i.height} preserveAspectRatio="none" opacity={i.opacity} onPointerDown={e=>{e.stopPropagation();setSelected(i.id)}}/>;return null})}
-        {current&&<g pointerEvents="none"><rect x={itemBounds(current).x-5} y={itemBounds(current).y-5} width={Math.max(10,itemBounds(current).width+10)} height={Math.max(10,itemBounds(current).height+10)} fill="none" stroke="#2684ff" strokeWidth={2/zoom} strokeDasharray={`${7/zoom} ${4/zoom}`}/></g>}
+        {current&&<g pointerEvents="none"><rect x={itemBounds(current).x-5} y={itemBounds(current).y-5} width={Math.max(10,itemBounds(current).width+10)} height={Math.max(10,itemBounds(current).height+10)} fill="none" stroke="var(--picd-page-accent, #315f9f)" strokeWidth={2/zoom} strokeDasharray={`${7/zoom} ${4/zoom}`}/></g>}
       </svg></div></main>
       <aside className="ai-right">
         <div className="ai-panel-title">LAYERS <button onClick={()=>add({id:uid(),name:"Rectangle",kind:"rect",x:100,y:100,width:160,height:100,rotation:0,fill,stroke,strokeWidth,opacity:1,visible:true})}><Plus size={14}/></button></div>
@@ -215,6 +235,7 @@ export default function IllustratorEditor() {
       </aside>
     </div>
     <footer className="ai-status"><span className="green"/> {status}<span className="grow"/><span>{doc.items.length} objects</span><span>{doc.width} × {doc.height}</span><span>Vector mode</span></footer>
+    <ConfirmModal open={!!dialog} alertMode={!dialog?.onConfirm} title={dialog?.title||"PICD Artwork"} message={dialog?.message||""} tone={dialog?.tone||"default"} confirmLabel="Confirm" onCancel={()=>setDialog(null)} onConfirm={()=>{const action=dialog?.onConfirm;setDialog(null);action?.();}} />
     <input ref={fileRef} type="file" hidden accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg,.picd,.json" onChange={e=>{const f=e.target.files?.[0];if(!f)return;if(f.name.toLowerCase().endsWith(".picd")||f.name.toLowerCase().endsWith(".json"))openProject(f);else if(f.type.includes("png")&&traceMode)tracePNG(f);else importFile(f);e.currentTarget.value=""}}/>
   </div>;
 }

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Stage, Layer, Image as KImage, Transformer, Rect, Line, Circle } from "react-konva";
 import type Konva from "konva";
+import ConfirmModal from "@/components/ConfirmModal";
 
 /* ---------- types ---------- */
 type Tool = "move" | "select" | "objsel" | "quicksel" | "crop" | "pen" | "brush" | "eraser" | "eyedropper" | "hand";
@@ -138,9 +139,11 @@ async function runSegmentation(src: HTMLCanvasElement, onStatus: (m: string) => 
     input.getContext("2d")!.drawImage(src, 0, 0, input.width, input.height);
   }
   const blob = await new Promise<Blob>((res, rej) => input.toBlob(b => (b ? res(b) : rej(new Error("Could not read image pixels"))), "image/png"));
-  const mod: any = await import("@imgly/background-removal");
-  const remove = mod.removeBackground || mod.default;
-  const out: Blob = await remove(blob, {
+  // v1.7 exposes removeBackground as a named export. Falling back to the
+  // module object/default export caused the production error "s is not a function".
+  const { removeBackground } = await import("@imgly/background-removal");
+  if (typeof removeBackground !== "function") throw new Error("The AI background-removal module did not load correctly.");
+  const out: Blob = await removeBackground(blob, {
     model: "isnet_fp16",
     output: { format: "image/png" },
     progress: (key: string, cur: number, total: number) => {
@@ -241,6 +244,7 @@ export default function Editor() {
   const [selMode, setSelMode] = useState<SelMode>("new");
   const [ants, setAnts] = useState<0 | 1>(0);
   const [busy, setBusy] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<{title:string; message:string; tone:"default"|"danger"; confirmLabel?:string; onConfirm?:()=>void} | null>(null);
 
   const cropStart = useRef<{ x: number; y: number } | null>(null);
   const pan = useRef<{ x: number; y: number; l: number; t: number } | null>(null);
@@ -306,13 +310,21 @@ export default function Editor() {
   }
   function chooseTool(t: Tool) { setTool(t); setPenPoints([]); setCropRect(null); setDraft(null); cropStart.current = null; }
 
+  function showInfo(message: string, title = "PICD Workspace") {
+    setDialog({ title, message, tone: "default", confirmLabel: "OK" });
+  }
+
+  function showConfirm(message: string, onConfirm: () => void, title = "Please confirm", tone: "default"|"danger" = "default") {
+    setDialog({ title, message, tone, confirmLabel: "Confirm", onConfirm });
+  }
+
   async function withBusy(msg: string, fn: () => Promise<void>) {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(msg);
     try { await fn(); }
     catch (err: any) {
       console.error(err);
-      alert("Subject detection failed: " + (err?.message || err) + "\n\nThe AI model (~80 MB) is downloaded the first time you use it, so you need to be online for the first run.");
+      showInfo("Subject detection failed: " + (err?.message || err) + "\n\nThe AI model (~80 MB) is downloaded the first time you use it, so you need to be online for the first run.", "Subject detection failed");
     } finally { busyRef.current = false; setBusy(null); }
   }
 
@@ -342,7 +354,7 @@ export default function Editor() {
     loadFile(!frontLoaded ? "front" : !sideLoaded ? "side" : "front", imgs[0]);
   }
   function autoArrange() {
-    if (!hasImages) { alert("Upload a front and/or side image first."); return; }
+    if (!hasImages) { showInfo("Upload a front and/or side image first.", "No images loaded"); return; }
     commit(d => ({ ...d, layers: arrange(d.layers) }));
   }
   /**
@@ -447,8 +459,9 @@ export default function Editor() {
   }
   function clearPaint() { commit(d => ({ ...d, strokes: [] })); }
   function clearAll() {
-    if (!confirm("Clear the whole workspace?")) return;
-    commit(() => ({ layers: [], strokes: [] })); setSelected(null); setSel(null);
+    showConfirm("This will remove all images, layers and brush strokes from the current workspace.", () => {
+      commit(() => ({ layers: [], strokes: [] })); setSelected(null); setSel(null); setDialog(null);
+    }, "Clear the whole workspace?", "danger");
   }
 
   /* ---------- selection (Photoshop-style) ---------- */
@@ -466,7 +479,7 @@ export default function Editor() {
   }
   async function selectSubject() {
     const l = targetImageLayer();
-    if (!l) { alert("Upload an image first."); return; }
+    if (!l) { showInfo("Upload an image first.", "No image selected"); return; }
     await withBusy("Detecting subject…", async () => {
       const m = await runSegmentation(toCanvas(l.image!), setBusy);
       applyMask(l, m, selMode);
@@ -482,7 +495,7 @@ export default function Editor() {
   }
   async function objectSelectBox(r: Box) {
     const l = pickImageLayerAt({ x: r.x + r.width / 2, y: r.y + r.height / 2 }, r);
-    if (!l || !l.image) { alert("Draw the box over an image."); return; }
+    if (!l || !l.image) { showInfo("Draw the box over an image.", "Object selection"); return; }
     const pts = [[r.x, r.y], [r.x + r.width, r.y], [r.x, r.y + r.height], [r.x + r.width, r.y + r.height]].map(([x, y]) => layerToSource(l, { x, y }));
     const nw = imgW(l.image), nh = imgH(l.image);
     const x0 = clamp(Math.floor(Math.min(...pts.map(p => p.x))), 0, nw), x1 = clamp(Math.ceil(Math.max(...pts.map(p => p.x))), 0, nw);
@@ -519,7 +532,7 @@ export default function Editor() {
   function deselect() { setSel(null); }
   function cutToNewLayer() {
     const s = selRef.current, l = s && layers.find(x => x.id === s.layerId);
-    if (!s || !l || !l.image) { alert("Make a selection first."); return; }
+    if (!s || !l || !l.image) { showInfo("Make a selection first.", "Selection required"); return; }
     const c = makeCutout(l.image, s.mask);
     const cut: LayerItem = { ...l, id: "cutout-" + Date.now(), name: l.name + " Cutout", image: c, thumb: thumbOf(c), visible: true, opacity: 1 };
     commit(d => {
@@ -531,13 +544,13 @@ export default function Editor() {
   }
   function deleteBackground() {
     const s = selRef.current, l = s && layers.find(x => x.id === s.layerId);
-    if (!s || !l || !l.image) { alert("Make a selection first."); return; }
+    if (!s || !l || !l.image) { showInfo("Make a selection first.", "Selection required"); return; }
     const c = makeCutout(l.image, s.mask);
     patch(l.id, { image: c, thumb: thumbOf(c) });
   }
   function fillSelection() {
     const s = selRef.current, l = s && layers.find(x => x.id === s.layerId);
-    if (!s || !l || !l.image) { alert("Make a selection first."); return; }
+    if (!s || !l || !l.image) { showInfo("Make a selection first.", "Selection required"); return; }
     const c = makeFill(s.mask, brushColor);
     const fill: LayerItem = { ...l, id: "fill-" + Date.now(), name: "Color Fill", image: c, thumb: thumbOf(c), visible: true, opacity: 1 };
     commit(d => ({ ...d, layers: [...d.layers, fill] }));
@@ -547,7 +560,7 @@ export default function Editor() {
   /** The original PICD flow: subject-select front + side, cut out, colour-fill, scale side to front height, align. */
   async function processGarment() {
     const bases = ["front", "side"].map(k => ({ kind: k, l: layers.find(l => l.id === k && l.image) })).filter(b => b.l) as { kind: string; l: LayerItem }[];
-    if (!bases.length) { alert("Upload a front and/or side image first."); return; }
+    if (!bases.length) { showInfo("Upload a front and/or side image first.", "No images loaded"); return; }
     await withBusy("Processing…", async () => {
       const groups: { kind: string; base: LayerItem; cut: LayerItem; fill: LayerItem; sil: { x: number; y: number; w: number; h: number } }[] = [];
       for (const { kind, l } of bases) {
@@ -607,12 +620,12 @@ export default function Editor() {
   }
   function applyCrop() {
     const l = active, r = cropRect;
-    if (!l || l.type !== "image" || !l.image) { alert("Select an image layer first, then drag a crop box over it."); return; }
-    if (!r || r.width < 4 || r.height < 4) { alert("Drag a crop box on the canvas first."); return; }
-    if (Math.abs(l.rotation % 360) > 0.01) { alert("Reset the layer's rotation first (Image → Reset Transform)."); return; }
+    if (!l || l.type !== "image" || !l.image) { showInfo("Select an image layer first, then drag a crop box over it.", "Crop"); return; }
+    if (!r || r.width < 4 || r.height < 4) { showInfo("Drag a crop box on the canvas first.", "Crop"); return; }
+    if (Math.abs(l.rotation % 360) > 0.01) { showInfo("Reset the layer's rotation first (Image → Reset Transform).", "Crop"); return; }
     const ix = Math.max(l.x, r.x), iy = Math.max(l.y, r.y);
     const iw = Math.min(l.x + l.width, r.x + r.width) - ix, ih = Math.min(l.y + l.height, r.y + r.height) - iy;
-    if (iw < 2 || ih < 2) { alert("The crop box doesn't overlap the selected layer."); return; }
+    if (iw < 2 || ih < 2) { showInfo("The crop box doesn't overlap the selected layer.", "Crop"); return; }
     const c = cropOf(l), k = c.width / l.width;
     const dx = l.flipX ? l.x + l.width - (ix + iw) : ix - l.x, dy = iy - l.y;
     patch(l.id, { x: ix, y: iy, width: iw, height: ih, crop: { x: c.x + dx * k, y: c.y + dy * k, width: iw * k, height: ih * k } });
@@ -1066,5 +1079,16 @@ export default function Editor() {
         {item("Send Backward", () => { reorder(-1); setCtxMenu(null); })}
       </div>;
     })()}
+    <ConfirmModal
+      open={!!dialog}
+      alertMode={!dialog?.onConfirm}
+      title={dialog?.title || "PICD Workspace"}
+      message={dialog?.message || ""}
+      confirmLabel={dialog?.confirmLabel || "OK"}
+      tone={dialog?.tone || "default"}
+      onCancel={() => setDialog(null)}
+      onConfirm={() => { const action = dialog?.onConfirm; setDialog(null); action?.(); }}
+    />
+
   </main>;
 }

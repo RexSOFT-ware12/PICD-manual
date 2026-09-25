@@ -6,8 +6,8 @@
   --line: #313847;
   --text: #dfe3ea;
   --muted: #8f98a8;
-  --accent: #f2ab3c;
-  --accent-ink: #201603;
+  --accent: var(--picd-workspace-accent, #f2ab3c);
+  --accent-ink: var(--picd-workspace-surface, #201603);
   --skeleton: #67d1d9;
   --ok: #72c791;
   --miss: #e58a7a;
@@ -48,7 +48,7 @@
 .picd-duf-scope .btn:hover:not(:disabled) { background: var(--raised); }
 .picd-duf-scope .btn:disabled { opacity: 0.45; cursor: default; }
 .picd-duf-scope .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 650; }
-.picd-duf-scope .btn.primary:hover { background: #f7b957; }
+.picd-duf-scope .btn.primary:hover { background: color-mix(in srgb, var(--accent) 86%, #fff); }
 .picd-duf-scope .btn.subtle { background: transparent; }
 .picd-duf-scope .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 
