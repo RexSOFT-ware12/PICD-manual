@@ -158,6 +158,30 @@ export default function SystemPage({ section = "overview" }: { section?: string 
   // sending only API-supported navigation entries to the backend. This prevents the
   // "Unknown navigation page: photo-workspace" error without removing the workspaces.
   const WORKSPACE_NAV_IDS = new Set(workspaceNavigationDefaults.map(item => item.id));
+  const DEFAULT_DUF_PREVIEW = {
+    brand_name: "DUF Workspace",
+    show_topbar: true,
+    show_statusbar: true,
+    show_view_toolbar: true,
+    left_panel_open: true,
+    right_panel_open: true,
+    left_panel_width: 250,
+    right_panel_width: 330,
+    default_tab: "pose" as const,
+    default_view: { skeleton: false, mesh: true, wireframe: false, xray: false, detail: false, grid: true, invertRotation: false },
+  };
+  const DUF_CUSTOMIZATION_STORAGE_KEY = "picd-duf-preview-customization";
+  const readDufCustomization = () => {
+    if (typeof window === "undefined") return DEFAULT_DUF_PREVIEW;
+    try {
+      const raw = window.localStorage.getItem(DUF_CUSTOMIZATION_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return { ...DEFAULT_DUF_PREVIEW, ...(parsed || {}), default_view: { ...DEFAULT_DUF_PREVIEW.default_view, ...((parsed || {}).default_view || {}) } };
+    } catch { return DEFAULT_DUF_PREVIEW; }
+  };
+  const saveDufCustomization = (value: any) => {
+    try { window.localStorage.setItem(DUF_CUSTOMIZATION_STORAGE_KEY, JSON.stringify(value)); } catch {}
+  };
   const WORKSPACE_NAV_STORAGE_KEY = "picd-workspace-navigation";
 
   const readWorkspaceNavigation = (): UICustomization["navigation"] => {
@@ -205,7 +229,7 @@ export default function SystemPage({ section = "overview" }: { section?: string 
         if (existingIndex >= 0) mergedNav[existingIndex] = { ...mergedNav[existingIndex], ...workspaceItem };
         else mergedNav.push(workspaceItem);
       }
-      setUiCustomization({ ...h, navigation: mergedNav, theme: { ...(h?.theme || {}), sidebar: { ...(h?.theme?.sidebar || {}) }, page: { ...(h?.theme?.page || {}) }, layout: { ...(h?.theme?.layout || {}) } } });
+      setUiCustomization({ ...h, navigation: mergedNav, duf_preview: readDufCustomization(), theme: { ...(h?.theme || {}), sidebar: { ...(h?.theme?.sidebar || {}) }, page: { ...(h?.theme?.page || {}) }, layout: { ...(h?.theme?.layout || {}) } } });
       setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Could not load system settings.");
@@ -252,9 +276,12 @@ export default function SystemPage({ section = "overview" }: { section?: string 
       // reject these newer route IDs. The server still receives all supported pages.
       saveWorkspaceNavigation(workspaceNavigation);
       const serverNavigation = navigation.filter(item => !WORKSPACE_NAV_IDS.has(item.id));
-      const saved = await updateUICustomization(loadSettings(), { ...uiCustomization, navigation: serverNavigation });
+      const dufPreview = uiCustomization.duf_preview || DEFAULT_DUF_PREVIEW;
+      const { duf_preview: _dufPreview, ...serverCustomization } = uiCustomization;
+      const saved = await updateUICustomization(loadSettings(), { ...serverCustomization, navigation: serverNavigation });
       const mergedSavedNavigation = [...saved.navigation, ...workspaceNavigation].sort((a,b) => a.order - b.order);
-      const savedWithWorkspaceNavigation = { ...saved, navigation: mergedSavedNavigation };
+      const savedWithWorkspaceNavigation = { ...saved, duf_preview: dufPreview, navigation: mergedSavedNavigation };
+      saveDufCustomization(dufPreview);
       setUiCustomization(savedWithWorkspaceNavigation);
       // AppShell stays mounted while this settings route saves. Broadcast the
       // server-confirmed configuration so the theme/navigation changes are
@@ -275,8 +302,8 @@ export default function SystemPage({ section = "overview" }: { section?: string 
     setUiCustomizationSaved(false);
     try {
       const restored = await updateUICustomization(loadSettings(), { _reset: true });
-      try { window.localStorage.removeItem(WORKSPACE_NAV_STORAGE_KEY); } catch {}
-      const restoredWithWorkspaces = { ...restored, navigation: [...restored.navigation, ...workspaceNavigationDefaults].sort((a,b) => a.order - b.order) };
+      try { window.localStorage.removeItem(WORKSPACE_NAV_STORAGE_KEY); window.localStorage.removeItem(DUF_CUSTOMIZATION_STORAGE_KEY); } catch {}
+      const restoredWithWorkspaces = { ...restored, duf_preview: DEFAULT_DUF_PREVIEW, navigation: [...restored.navigation, ...workspaceNavigationDefaults].sort((a,b) => a.order - b.order) };
       setUiCustomization(restoredWithWorkspaces);
       window.dispatchEvent(new CustomEvent("picd-ui-customization-updated", { detail: restoredWithWorkspaces }));
       setUiCustomizationMessage("Default sidebar and theme restored.");
@@ -535,6 +562,24 @@ Time: {time}`};return <div key={k} className="rounded-xl border border-line bg-w
               </div>;
             })}
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-line bg-paper/35 p-4">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div><h3 className="text-sm font-semibold">DUF Preview workspace</h3><p className="mt-1 text-[10px] leading-4 text-ink/40">Customize the DUF Preview workspace itself. These settings are independent of the visual theme.</p></div>
+            <button onClick={() => setUiCustomization({...uiCustomization, duf_preview: DEFAULT_DUF_PREVIEW})} className="rounded-lg border border-line bg-white px-3 py-2 text-[10px] font-semibold text-ink/55">Reset DUF</button>
+          </div>
+          {uiCustomization.duf_preview && <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-[10px] font-semibold text-ink/50">Workspace title<input value={uiCustomization.duf_preview.brand_name} onChange={e=>setUiCustomization({...uiCustomization,duf_preview:{...uiCustomization.duf_preview!,brand_name:e.target.value}})} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-xs outline-none focus:border-blueprint" /></label>
+              <label className="text-[10px] font-semibold text-ink/50">Default inspector tab<select value={uiCustomization.duf_preview.default_tab} onChange={e=>setUiCustomization({...uiCustomization,duf_preview:{...uiCustomization.duf_preview!,default_tab:e.target.value as any}})} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-xs outline-none focus:border-blueprint"><option value="pose">Pose</option><option value="shape">Shape</option><option value="surfaces">Surfaces</option><option value="content">Content</option><option value="file">File</option></select></label>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {([['show_topbar','Show top toolbar'],['show_statusbar','Show status bar'],['show_view_toolbar','Show viewport toolbar'],['left_panel_open','Open Scene panel by default'],['right_panel_open','Open Inspector by default']] as const).map(([key,label])=><label key={key} className="flex items-center justify-between rounded-xl border border-line bg-white px-3 py-2.5 text-[10px] font-semibold text-ink/55"><span>{label}</span><input type="checkbox" checked={uiCustomization.duf_preview![key]} onChange={e=>setUiCustomization({...uiCustomization,duf_preview:{...uiCustomization.duf_preview!,[key]:e.target.checked}})} className="h-4 w-4 accent-blueprint" /></label>)}
+            </div>
+            <div><h4 className="text-[10px] font-bold uppercase tracking-[.12em] text-ink/35">Panel sizing</h4><div className="mt-2 grid grid-cols-2 gap-3"><label className="text-[10px] font-semibold text-ink/50">Scene width<input type="number" min="180" max="420" value={uiCustomization.duf_preview.left_panel_width} onChange={e=>setUiCustomization({...uiCustomization,duf_preview:{...uiCustomization.duf_preview!,left_panel_width:Number(e.target.value)}})} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-xs" /></label><label className="text-[10px] font-semibold text-ink/50">Inspector width<input type="number" min="260" max="520" value={uiCustomization.duf_preview.right_panel_width} onChange={e=>setUiCustomization({...uiCustomization,duf_preview:{...uiCustomization.duf_preview!,right_panel_width:Number(e.target.value)}})} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-xs" /></label></div></div>
+            <div><h4 className="text-[10px] font-bold uppercase tracking-[.12em] text-ink/35">Default viewport</h4><div className="mt-2 grid grid-cols-2 gap-2">{([['skeleton','Skeleton'],['mesh','Mesh'],['wireframe','Wireframe'],['xray','See-through joints'],['detail','Fingers and face'],['grid','Grid'],['invertRotation','Invert pose rotation']] as const).map(([key,label])=><label key={key} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2.5 text-[10px] font-semibold text-ink/55"><input type="checkbox" checked={uiCustomization.duf_preview!.default_view[key]} onChange={e=>setUiCustomization({...uiCustomization,duf_preview:{...uiCustomization.duf_preview!,default_view:{...uiCustomization.duf_preview!.default_view,[key]:e.target.checked}}})} className="h-4 w-4 accent-blueprint" />{label}</label>)}</div></div>
+          </div>}
         </section>
 
         <section className="rounded-2xl border border-line bg-paper/35 p-4">

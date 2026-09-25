@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import Viewport from "./Viewport";
@@ -28,6 +28,21 @@ const TABS: { id: RightTab; label: string }[] = [
   { id: "file", label: "File" },
 ];
 
+const DEFAULT_DUF_CUSTOMIZATION = {
+  brand_name: "DUF Workspace", show_topbar: true, show_statusbar: true, show_view_toolbar: true,
+  left_panel_open: true, right_panel_open: true, left_panel_width: 250, right_panel_width: 330, default_tab: "pose" as RightTab,
+  default_view: { skeleton: false, mesh: true, wireframe: false, xray: false, detail: false, grid: true, invertRotation: false },
+};
+const DUF_CUSTOMIZATION_STORAGE_KEY = "picd-duf-preview-customization";
+
+function readDufCustomization() {
+  if (typeof window === "undefined") return DEFAULT_DUF_CUSTOMIZATION;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(DUF_CUSTOMIZATION_STORAGE_KEY) || "{}");
+    return { ...DEFAULT_DUF_CUSTOMIZATION, ...(parsed || {}), default_view: { ...DEFAULT_DUF_CUSTOMIZATION.default_view, ...((parsed || {}).default_view || {}) } };
+  } catch { return DEFAULT_DUF_CUSTOMIZATION; }
+}
+
 const poseFromModel = (m: SceneModel): Record<string, Vec3> => {
   const out: Record<string, Vec3> = {};
   for (const b of m.bones) if (b.rotation.some((v) => v !== 0)) out[b.id] = [...b.rotation] as Vec3;
@@ -43,8 +58,9 @@ export default function Workspace() {
   const [pose, setPose] = useState<Record<string, Vec3>>({});
   const [morphValues, setMorphValues] = useState<Record<string, number>>({});
   const [selected, setSelected] = useState<string | null>(null);
-  const [view, setView] = useState<ViewOptions>(DEFAULT_VIEW);
-  const [tab, setTab] = useState<RightTab>("pose");
+  const [dufCustomization, setDufCustomization] = useState(readDufCustomization);
+  const [view, setView] = useState<ViewOptions>(() => ({ ...DEFAULT_VIEW, ...readDufCustomization().default_view }));
+  const [tab, setTab] = useState<RightTab>(() => readDufCustomization().default_tab);
   const [assetVersion, setAssetVersion] = useState(0);
   const [report, setReport] = useState<AssetReport>(EMPTY_REPORT);
   const [stats, setStats] = useState<EngineStats>({ bones: 0, meshes: 0, triangles: 0, skinnedVertices: 0 });
@@ -52,8 +68,8 @@ export default function Workspace() {
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [libraryReady, setLibraryReady] = useState(false);
-  const [leftOpen, setLeftOpen] = useState(true);
-  const [rightOpen, setRightOpen] = useState(true);
+  const [leftOpen, setLeftOpen] = useState(() => readDufCustomization().left_panel_open);
+  const [rightOpen, setRightOpen] = useState(() => readDufCustomization().right_panel_open);
   const [dialog, setDialog] = useState<{title:string;message:string;tone:"default"|"danger";onConfirm?:()=>void}|null>(null);
 
   const solverRef = useRef<ShapeSolver | null>(null);
@@ -64,6 +80,23 @@ export default function Workspace() {
   morphRef.current = morphValues;
   const dragDepth = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const apply = (next: any) => {
+      const merged = { ...DEFAULT_DUF_CUSTOMIZATION, ...(next || {}), default_view: { ...DEFAULT_DUF_CUSTOMIZATION.default_view, ...((next || {}).default_view || {}) } };
+      setDufCustomization(merged);
+      setLeftOpen(merged.left_panel_open);
+      setRightOpen(merged.right_panel_open);
+      setTab(merged.default_tab);
+      setView(v => ({ ...v, ...merged.default_view }));
+    };
+    const onUpdate = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail?.duf_preview) apply(detail.duf_preview);
+    };
+    window.addEventListener("picd-ui-customization-updated", onUpdate);
+    return () => window.removeEventListener("picd-ui-customization-updated", onUpdate);
+  }, []);
 
   /* ---------------------------------------------------------- loading */
 
@@ -279,6 +312,7 @@ export default function Workspace() {
   return (
     <div
       className="app"
+      style={{ "--duf-left-width": `${Math.max(180, Math.min(420, Number(dufCustomization.left_panel_width) || 250))}px`, "--duf-right-width": `${Math.max(260, Math.min(520, Number(dufCustomization.right_panel_width) || 330))}px`, "--duf-topbar-height": dufCustomization.show_topbar ? "46px" : "0px", "--duf-status-height": dufCustomization.show_statusbar ? "28px" : "0px" } as CSSProperties}
       onDragEnter={(e) => {
         e.preventDefault();
         dragDepth.current++;
@@ -291,10 +325,10 @@ export default function Workspace() {
       }}
       onDrop={onDrop}
     >
-      <header className="topbar">
+      {dufCustomization.show_topbar && <header className="topbar">
         <div className="brand">
           <span className="brand-mark" aria-hidden />
-          <span className="brand-name">DUF Workspace</span>
+          <span className="brand-name">{dufCustomization.brand_name || "DUF Workspace"}</span>
         </div>
         <div className="doc" title={model?.fileName}>
           {model ? model.fileName : "No file open"}
@@ -315,7 +349,7 @@ export default function Workspace() {
             }}
           />
         </div>
-      </header>
+      </header>}
 
       <div className={`main${leftOpen ? "" : " left-collapsed"}${rightOpen ? "" : " right-collapsed"}`}>
         {leftOpen ? (
@@ -342,7 +376,7 @@ export default function Workspace() {
           <div className="viewport">
             <Viewport onReady={setEngine} />
 
-            <div className="view-toolbar" role="toolbar" aria-label="Viewport">
+            {dufCustomization.show_view_toolbar && <div className="view-toolbar" role="toolbar" aria-label="Viewport">
               <div className="seg">
                 {(["front", "back", "left", "right", "top"] as const).map((v) => (
                   <button key={v} onClick={() => engine?.view(v)}>{v[0].toUpperCase() + v.slice(1)}</button>
@@ -357,7 +391,7 @@ export default function Workspace() {
                 <button aria-pressed={view.detail} onClick={() => toggle("detail")}>Fingers and face</button>
                 <button aria-pressed={view.grid} onClick={() => toggle("grid")}>Grid</button>
               </div>
-            </div>
+            </div>}
 
             {noMesh && (
               <div className="notice">
@@ -446,13 +480,13 @@ export default function Workspace() {
         )}
       </div>
 
-      <footer className="statusbar" role="status">
+      {dufCustomization.show_statusbar && <footer className="statusbar" role="status">
         <span className="status-msg">{busy ? "Working… " : ""}{message}</span>
         <span className="status-stats">
           {stats.meshes > 0 ? `${stats.meshes} mesh${stats.meshes === 1 ? "" : "es"} · ${stats.triangles.toLocaleString()} triangles · ` : ""}
           {stats.bones} bones
         </span>
-      </footer>
+      </footer>}
       <ConfirmModal open={!!dialog} alertMode={!dialog?.onConfirm} title={dialog?.title||"DUF Preview"} message={dialog?.message||""} tone={dialog?.tone||"default"} confirmLabel="Confirm" onCancel={()=>setDialog(null)} onConfirm={()=>{const action=dialog?.onConfirm;setDialog(null);action?.();}} />
 
     </div>

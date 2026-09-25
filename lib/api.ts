@@ -616,7 +616,19 @@ export type GlobalVariableDefinition = { key:string; label:string; source_label?
 export type GlobalVariablesConfig = { version:number; variables:GlobalVariableDefinition[] };
 export const fetchGlobalVariables = (s: ConnectionSettings) => request<GlobalVariablesConfig>("/monitor/system/global-variables", s);
 export type UICustomizationNavItem = { id:string; href:string; label:string; icon:string; section:string; permission:string; visible:boolean; order:number };
-export type UICustomization = { version:number; navigation:UICustomizationNavItem[]; theme:{ sidebar:{background:string;text:string;muted_text:string;section_text:string;active_background:string;active_text:string;hover_background:string;border:string;width_px:number}; page:{background:string;surface:string;border:string;text:string;muted_text:string;accent:string;success:string;warning:string;error:string}; layout:{density:"compact"|"comfortable";sidebar_shadow:boolean} } };
+export type DufPreviewCustomization = {
+  brand_name: string;
+  show_topbar: boolean;
+  show_statusbar: boolean;
+  show_view_toolbar: boolean;
+  left_panel_open: boolean;
+  right_panel_open: boolean;
+  left_panel_width: number;
+  right_panel_width: number;
+  default_tab: "pose" | "shape" | "surfaces" | "content" | "file";
+  default_view: { skeleton:boolean; mesh:boolean; wireframe:boolean; xray:boolean; detail:boolean; grid:boolean; invertRotation:boolean };
+};
+export type UICustomization = { version:number; navigation:UICustomizationNavItem[]; duf_preview?: DufPreviewCustomization; theme:{ sidebar:{background:string;text:string;muted_text:string;section_text:string;active_background:string;active_text:string;hover_background:string;border:string;width_px:number}; page:{background:string;surface:string;border:string;text:string;muted_text:string;accent:string;success:string;warning:string;error:string}; layout:{density:"compact"|"comfortable";sidebar_shadow:boolean} } };
 export const fetchUICustomization = (s: ConnectionSettings) => request<UICustomization>("/monitor/system/ui-customization", s);
 export const updateUICustomization = (s: ConnectionSettings, body: UICustomization | { _reset:boolean }) => postJson<UICustomization>("/monitor/system/ui-customization", s, body);
 

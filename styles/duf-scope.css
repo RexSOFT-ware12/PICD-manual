@@ -37,7 +37,7 @@
 .picd-duf-scope p { margin: 0 0 8px; }
 .picd-duf-scope ul { list-style: none; margin: 0; padding: 0; }
 
-.picd-duf-scope .app { display: grid; grid-template-rows: 46px minmax(0, 1fr) 28px; height: 100dvh; }
+.picd-duf-scope .app { display: grid; grid-template-rows: var(--duf-topbar-height, 46px) minmax(0, 1fr) var(--duf-status-height, 28px); height: 100dvh; }
 
 /* top bar */
 .picd-duf-scope .topbar { display: flex; align-items: center; gap: 16px; padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
@@ -56,9 +56,9 @@
 .picd-duf-scope .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 
 /* layout */
-.picd-duf-scope .main { display: grid; grid-template-columns: 250px minmax(0, 1fr) 330px; min-height: 0; }
-.picd-duf-scope .main.left-collapsed { grid-template-columns: 32px minmax(0, 1fr) 330px; }
-.picd-duf-scope .main.right-collapsed { grid-template-columns: 250px minmax(0, 1fr) 32px; }
+.picd-duf-scope .main { display: grid; grid-template-columns: var(--duf-left-width, 250px) minmax(0, 1fr) var(--duf-right-width, 330px); min-height: 0; }
+.picd-duf-scope .main.left-collapsed { grid-template-columns: 32px minmax(0, 1fr) var(--duf-right-width, 330px); }
+.picd-duf-scope .main.right-collapsed { grid-template-columns: var(--duf-left-width, 250px) minmax(0, 1fr) 32px; }
 .picd-duf-scope .main.left-collapsed.right-collapsed { grid-template-columns: 32px minmax(0, 1fr) 32px; }
 .picd-duf-scope .panel { display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
 .picd-duf-scope .panel.left { border-right: 1px solid var(--line); }
