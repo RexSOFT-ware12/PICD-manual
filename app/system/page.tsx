@@ -130,6 +130,8 @@ export default function SystemPage({ section = "overview" }: { section?: string 
   const [globalVariablesMessage, setGlobalVariablesMessage] = useState<string | null>(null);
   const [uiCustomization, setUiCustomization] = useState<UICustomization | null>(null);
   const [uiCustomizationMessage, setUiCustomizationMessage] = useState<string | null>(null);
+  const [uiCustomizationBusy, setUiCustomizationBusy] = useState(false);
+  const [uiCustomizationSaved, setUiCustomizationSaved] = useState(false);
   const [operationalMessage, setOperationalMessage] = useState<string | null>(null);
   const [email, setEmail] = useState<EmailSettings | null>(null);
   const [emailBusy, setEmailBusy] = useState(false);
@@ -144,6 +146,12 @@ export default function SystemPage({ section = "overview" }: { section?: string 
   const loading = !!settings.baseUrl && (!state || !health || !email || !clientEstimate || !bodyAnalyzer || !operational || !globalVariables || !uiCustomization);
 
   useEffect(() => { setSettings(loadSettings()); setNotificationSound(loadNotificationSound()); }, []);
+
+  const workspaceNavigationDefaults: UICustomization["navigation"] = [
+    { id: "photo-workspace", href: "/photo-workspace", label: "Photo workspace", icon: "▧", section: "Workspaces", permission: "workspace.read", visible: true, order: 12 },
+    { id: "illustrator", href: "/illustrator", label: "Artwork", icon: "✎", section: "Workspaces", permission: "workspace.read", visible: true, order: 13 },
+    { id: "duf-preview", href: "/duf-preview", label: "Duf Preview", icon: "◐", section: "Workspaces", permission: "workspace.read", visible: true, order: 14 },
+  ];
 
   const load = useCallback(async () => {
     const s = loadSettings();
@@ -166,7 +174,11 @@ export default function SystemPage({ section = "overview" }: { section?: string 
       } as OperationalConfig);
       setGlobalVariables({ ...g, variables: Array.isArray(g?.variables) ? g.variables.filter((v): v is NonNullable<typeof v> => !!v && typeof v === "object") : [] });
       const safeNav = Array.isArray(h?.navigation) ? h.navigation.filter((item): item is NonNullable<typeof item> => !!item && typeof item === "object" && typeof item.id === "string") : [];
-      setUiCustomization({ ...h, navigation: safeNav, theme: { ...(h?.theme || {}), sidebar: { ...(h?.theme?.sidebar || {}) }, page: { ...(h?.theme?.page || {}) }, layout: { ...(h?.theme?.layout || {}) } } });
+      const mergedNav = [...safeNav];
+      for (const workspaceItem of workspaceNavigationDefaults) {
+        if (!mergedNav.some(item => item.id === workspaceItem.id)) mergedNav.push(workspaceItem);
+      }
+      setUiCustomization({ ...h, navigation: mergedNav, theme: { ...(h?.theme || {}), sidebar: { ...(h?.theme?.sidebar || {}) }, page: { ...(h?.theme?.page || {}) }, layout: { ...(h?.theme?.layout || {}) } } });
       setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Could not load system settings.");
@@ -202,17 +214,27 @@ export default function SystemPage({ section = "overview" }: { section?: string 
   };
 
   const saveUiCustomization = async () => {
-    if (!uiCustomization) return;
+    if (!uiCustomization || uiCustomizationBusy) return;
     setUiCustomizationMessage(null);
+    setUiCustomizationSaved(false);
+    setUiCustomizationBusy(true);
     try {
       const navigation = uiCustomization.navigation.map((item, i) => ({ ...item, order: i + 1 }));
-      setUiCustomization(await updateUICustomization(loadSettings(), { ...uiCustomization, navigation }));
-      setUiCustomizationMessage("Sidebar and theme saved. Other signed-in users will receive the updated layout on their next refresh.");
-    } catch (e) { setUiCustomizationMessage(e instanceof ApiError ? e.message : "Could not save sidebar and theme settings."); }
+      const saved = await updateUICustomization(loadSettings(), { ...uiCustomization, navigation });
+      setUiCustomization(saved);
+      setUiCustomizationMessage("Saved successfully. Your appearance and navigation settings are now active.");
+      setUiCustomizationSaved(true);
+      window.setTimeout(() => setUiCustomizationSaved(false), 2200);
+    } catch (e) {
+      setUiCustomizationMessage(e instanceof ApiError ? e.message : "Could not save sidebar and theme settings.");
+    } finally {
+      setUiCustomizationBusy(false);
+    }
   };
 
   const resetUiCustomization = async () => {
     setUiCustomizationMessage(null);
+    setUiCustomizationSaved(false);
     try { setUiCustomization(await updateUICustomization(loadSettings(), { _reset: true })); setUiCustomizationMessage("Default sidebar and theme restored."); }
     catch (e) { setUiCustomizationMessage(e instanceof ApiError ? e.message : "Could not restore sidebar and theme defaults."); }
   };
@@ -438,8 +460,10 @@ Time: {time}`};return <div key={k} className="rounded-xl border border-line bg-w
         <p className="mt-1 max-w-3xl text-xs leading-5 text-ink/45">Shape the main PICD sidebar and visual language from one place. These controls change presentation only; routes, permissions and protected behavior stay server-controlled.</p>
       </div>
       <div className="flex shrink-0 gap-2">
-        <button onClick={resetUiCustomization} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55 transition hover:border-ink/20 hover:text-ink">Restore defaults</button>
-        <button onClick={saveUiCustomization} disabled={!uiCustomization} className="rounded-lg bg-blueprint px-4 py-2 text-[11px] font-semibold text-paper shadow-sm disabled:opacity-40">Save changes</button>
+        <button onClick={resetUiCustomization} disabled={uiCustomizationBusy} className="rounded-lg border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink/55 transition hover:border-ink/20 hover:text-ink disabled:opacity-40">Restore defaults</button>
+        <button onClick={saveUiCustomization} disabled={!uiCustomization || uiCustomizationBusy} className="inline-flex min-w-[128px] items-center justify-center gap-2 rounded-lg bg-blueprint px-4 py-2 text-[11px] font-semibold text-paper shadow-sm transition hover:brightness-110 disabled:opacity-60">
+          {uiCustomizationBusy ? <><span className="h-3 w-3 animate-spin rounded-full border-2 border-paper/35 border-t-paper"/> Saving…</> : uiCustomizationSaved ? <><span className="text-sm">✓</span> Saved</> : "Save changes"}
+        </button>
       </div>
     </div>
     {uiCustomization && <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(300px,.75fr)] gap-5 p-5">
