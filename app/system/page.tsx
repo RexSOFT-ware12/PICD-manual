@@ -152,6 +152,31 @@ export default function SystemPage({ section = "overview" }: { section?: string 
     { id: "illustrator", href: "/illustrator", label: "Artwork", icon: "✎", section: "Workspaces", permission: "workspace.read", visible: true, order: 13 },
     { id: "duf-preview", href: "/duf-preview", label: "Duf Preview", icon: "◐", section: "Workspaces", permission: "workspace.read", visible: true, order: 14 },
   ];
+  // Older PICD API deployments validate navigation IDs against their own allow-list
+  // and do not yet know the three workspace routes. Keep those workspace entries
+  // in the frontend navigation model and persist their customization locally, while
+  // sending only API-supported navigation entries to the backend. This prevents the
+  // "Unknown navigation page: photo-workspace" error without removing the workspaces.
+  const WORKSPACE_NAV_IDS = new Set(workspaceNavigationDefaults.map(item => item.id));
+  const WORKSPACE_NAV_STORAGE_KEY = "picd-workspace-navigation";
+
+  const readWorkspaceNavigation = (): UICustomization["navigation"] => {
+    if (typeof window === "undefined") return workspaceNavigationDefaults;
+    try {
+      const raw = window.localStorage.getItem(WORKSPACE_NAV_STORAGE_KEY);
+      if (!raw) return workspaceNavigationDefaults;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return workspaceNavigationDefaults;
+      const byId = new Map(parsed.filter((x:any) => x && typeof x.id === "string").map((x:any) => [x.id, x]));
+      return workspaceNavigationDefaults.map(base => ({ ...base, ...(byId.get(base.id) || {}) }));
+    } catch { return workspaceNavigationDefaults; }
+  };
+
+  const saveWorkspaceNavigation = (items: UICustomization["navigation"]) => {
+    try {
+      window.localStorage.setItem(WORKSPACE_NAV_STORAGE_KEY, JSON.stringify(items.filter(item => WORKSPACE_NAV_IDS.has(item.id))));
+    } catch {}
+  };
 
   const load = useCallback(async () => {
     const s = loadSettings();
@@ -175,8 +200,10 @@ export default function SystemPage({ section = "overview" }: { section?: string 
       setGlobalVariables({ ...g, variables: Array.isArray(g?.variables) ? g.variables.filter((v): v is NonNullable<typeof v> => !!v && typeof v === "object") : [] });
       const safeNav = Array.isArray(h?.navigation) ? h.navigation.filter((item): item is NonNullable<typeof item> => !!item && typeof item === "object" && typeof item.id === "string") : [];
       const mergedNav = [...safeNav];
-      for (const workspaceItem of workspaceNavigationDefaults) {
-        if (!mergedNav.some(item => item.id === workspaceItem.id)) mergedNav.push(workspaceItem);
+      for (const workspaceItem of readWorkspaceNavigation()) {
+        const existingIndex = mergedNav.findIndex(item => item.id === workspaceItem.id);
+        if (existingIndex >= 0) mergedNav[existingIndex] = { ...mergedNav[existingIndex], ...workspaceItem };
+        else mergedNav.push(workspaceItem);
       }
       setUiCustomization({ ...h, navigation: mergedNav, theme: { ...(h?.theme || {}), sidebar: { ...(h?.theme?.sidebar || {}) }, page: { ...(h?.theme?.page || {}) }, layout: { ...(h?.theme?.layout || {}) } } });
       setError(null);
@@ -220,12 +247,19 @@ export default function SystemPage({ section = "overview" }: { section?: string 
     setUiCustomizationBusy(true);
     try {
       const navigation = uiCustomization.navigation.map((item, i) => ({ ...item, order: i + 1 }));
-      const saved = await updateUICustomization(loadSettings(), { ...uiCustomization, navigation });
-      setUiCustomization(saved);
+      const workspaceNavigation = navigation.filter(item => WORKSPACE_NAV_IDS.has(item.id));
+      // Persist workspace-specific navigation locally because the deployed API may
+      // reject these newer route IDs. The server still receives all supported pages.
+      saveWorkspaceNavigation(workspaceNavigation);
+      const serverNavigation = navigation.filter(item => !WORKSPACE_NAV_IDS.has(item.id));
+      const saved = await updateUICustomization(loadSettings(), { ...uiCustomization, navigation: serverNavigation });
+      const mergedSavedNavigation = [...saved.navigation, ...workspaceNavigation].sort((a,b) => a.order - b.order);
+      const savedWithWorkspaceNavigation = { ...saved, navigation: mergedSavedNavigation };
+      setUiCustomization(savedWithWorkspaceNavigation);
       // AppShell stays mounted while this settings route saves. Broadcast the
       // server-confirmed configuration so the theme/navigation changes are
       // applied immediately everywhere without a hard refresh.
-      window.dispatchEvent(new CustomEvent("picd-ui-customization-updated", { detail: saved }));
+      window.dispatchEvent(new CustomEvent("picd-ui-customization-updated", { detail: savedWithWorkspaceNavigation }));
       setUiCustomizationMessage("Saved successfully. Your appearance and navigation settings are now active.");
       setUiCustomizationSaved(true);
       window.setTimeout(() => setUiCustomizationSaved(false), 2200);
@@ -241,8 +275,10 @@ export default function SystemPage({ section = "overview" }: { section?: string 
     setUiCustomizationSaved(false);
     try {
       const restored = await updateUICustomization(loadSettings(), { _reset: true });
-      setUiCustomization(restored);
-      window.dispatchEvent(new CustomEvent("picd-ui-customization-updated", { detail: restored }));
+      try { window.localStorage.removeItem(WORKSPACE_NAV_STORAGE_KEY); } catch {}
+      const restoredWithWorkspaces = { ...restored, navigation: [...restored.navigation, ...workspaceNavigationDefaults].sort((a,b) => a.order - b.order) };
+      setUiCustomization(restoredWithWorkspaces);
+      window.dispatchEvent(new CustomEvent("picd-ui-customization-updated", { detail: restoredWithWorkspaces }));
       setUiCustomizationMessage("Default sidebar and theme restored.");
     }
     catch (e) { setUiCustomizationMessage(e instanceof ApiError ? e.message : "Could not restore sidebar and theme defaults."); }

@@ -31,6 +31,17 @@ const ADMIN_CACHE_KEY = "picd-auth-admin";
 
 let sessionUiCache: UICustomization | null = null;
 const UI_CACHE_KEY = "picd-ui-customization";
+const WORKSPACE_NAV_STORAGE_KEY = "picd-workspace-navigation";
+const WORKSPACE_NAV_IDS = new Set(["photo-workspace", "illustrator", "duf-preview"]);
+
+function readWorkspaceNavOverrides() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(WORKSPACE_NAV_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((x:any) => x && WORKSPACE_NAV_IDS.has(x.id)) : [];
+  } catch { return []; }
+}
 
 function readCachedUi(): UICustomization | null {
   if (sessionUiCache) return sessionUiCache;
@@ -149,7 +160,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // authentication changes and React throws minified error #310.
   const [activeSetting, setActiveSetting] = useState("overview");
   const rawNavigation = Array.isArray(ui?.navigation) ? ui.navigation : [];
-  const navigation = [...defaultNav.map(base => { const saved = rawNavigation.find(x => x.id === base.id); return saved ? { ...base, ...saved } : base; }), ...rawNavigation.filter(x => !defaultNav.some(base => base.id === x.id))]
+  const workspaceOverrides = readWorkspaceNavOverrides();
+  const effectiveNavigation = rawNavigation.map(item => {
+    const override = workspaceOverrides.find((x:any) => x.id === item.id);
+    return override ? { ...item, ...override } : item;
+  });
+  const navigation = [...defaultNav.map(base => { const saved = effectiveNavigation.find(x => x.id === base.id); return saved ? { ...base, ...saved } : base; }), ...effectiveNavigation.filter(x => !defaultNav.some(base => base.id === x.id))]
     .filter((item): item is typeof defaultNav[number] => !!item && typeof item === "object" && typeof item.href === "string" && typeof item.id === "string")
     .map((item, index) => ({
       ...item,
