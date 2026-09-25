@@ -1,19 +1,19 @@
 .picd-duf-scope {
-  --bg: #161920;
-  --panel: #1d2129;
-  --panel-2: #252a34;
-  --raised: #2c323e;
-  --line: #313847;
-  --text: #dfe3ea;
-  --muted: #8f98a8;
-  --accent: var(--picd-workspace-accent, #f2ab3c);
-  --accent-ink: var(--picd-workspace-surface, #201603);
-  --skeleton: var(--picd-workspace-warning, #67d1d9);
-  --ok: var(--picd-workspace-success, #72c791);
-  --miss: var(--picd-workspace-error, #e58a7a);
-  --info: var(--picd-workspace-accent, #315f9f);
-  --workspace-text: var(--picd-workspace-text, #dfe3ea);
-  --workspace-muted: var(--picd-workspace-muted, #8f98a8);
+  --bg: var(--duf-bg, #16181D);
+  --panel: var(--duf-panel, #202329);
+  --panel-2: var(--duf-panel-2, #292D34);
+  --raised: var(--duf-raised, #343942);
+  --line: var(--duf-line, #3B414B);
+  --text: var(--duf-text, #E4E7EC);
+  --muted: var(--duf-muted, #949CAA);
+  --accent: var(--duf-accent, #D98A32);
+  --accent-ink: var(--duf-accent-ink, #1B1207);
+  --skeleton: var(--duf-warning, #D6B35A);
+  --ok: var(--duf-ok, #70C58A);
+  --miss: var(--duf-error, #E17C72);
+  --info: var(--duf-accent, #D98A32);
+  --workspace-text: var(--duf-text, #E4E7EC);
+  --workspace-muted: var(--duf-muted, #949CAA);
   --radius: 6px;
   --font: var(--font-ui), system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: dark;
@@ -115,7 +115,7 @@
 
 /* viewport */
 .picd-duf-scope .stage-wrap { min-width: 0; min-height: 0; display: flex; }
-.picd-duf-scope .viewport { position: relative; flex: 1; min-width: 0; overflow: hidden; background: radial-gradient(120% 90% at 50% 38%, #444c5b 0%, #2c323d 55%, #20242c 100%); }
+.picd-duf-scope .viewport { position: relative; flex: 1; min-width: 0; overflow: hidden; background: radial-gradient(120% 90% at 50% 38%, color-mix(in srgb, var(--duf-raised, #343942) 92%, #fff) 0%, var(--duf-raised, #343942) 55%, var(--duf-viewport-bg, #111318) 100%); }
 .picd-duf-scope .viewport-canvas { position: absolute; inset: 0; }
 .picd-duf-scope .viewport-error { position: absolute; inset: 0; display: grid; place-content: center; gap: 6px; text-align: center; padding: 24px; }
 

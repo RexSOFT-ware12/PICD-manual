@@ -616,8 +616,25 @@ export type GlobalVariableDefinition = { key:string; label:string; source_label?
 export type GlobalVariablesConfig = { version:number; variables:GlobalVariableDefinition[] };
 export const fetchGlobalVariables = (s: ConnectionSettings) => request<GlobalVariablesConfig>("/monitor/system/global-variables", s);
 export type UICustomizationNavItem = { id:string; href:string; label:string; icon:string; section:string; permission:string; visible:boolean; order:number };
+export type DufThemeCustomization = {
+  bg: string;
+  panel: string;
+  panel_2: string;
+  raised: string;
+  line: string;
+  text: string;
+  muted: string;
+  accent: string;
+  accent_ink: string;
+  viewport_bg: string;
+  ok: string;
+  warning: string;
+  error: string;
+};
+
 export type DufPreviewCustomization = {
   brand_name: string;
+  theme: DufThemeCustomization;
   show_topbar: boolean;
   show_statusbar: boolean;
   show_view_toolbar: boolean;

@@ -158,8 +158,24 @@ export default function SystemPage({ section = "overview" }: { section?: string 
   // sending only API-supported navigation entries to the backend. This prevents the
   // "Unknown navigation page: photo-workspace" error without removing the workspaces.
   const WORKSPACE_NAV_IDS = new Set(workspaceNavigationDefaults.map(item => item.id));
+  const DEFAULT_DUF_THEME = {
+    bg: "#16181D",
+    panel: "#202329",
+    panel_2: "#292D34",
+    raised: "#343942",
+    line: "#3B414B",
+    text: "#E4E7EC",
+    muted: "#949CAA",
+    accent: "#D98A32",
+    accent_ink: "#1B1207",
+    viewport_bg: "#111318",
+    ok: "#70C58A",
+    warning: "#D6B35A",
+    error: "#E17C72",
+  };
   const DEFAULT_DUF_PREVIEW = {
     brand_name: "DUF Workspace",
+    theme: DEFAULT_DUF_THEME,
     show_topbar: true,
     show_statusbar: true,
     show_view_toolbar: true,
@@ -176,7 +192,7 @@ export default function SystemPage({ section = "overview" }: { section?: string 
     try {
       const raw = window.localStorage.getItem(DUF_CUSTOMIZATION_STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : {};
-      return { ...DEFAULT_DUF_PREVIEW, ...(parsed || {}), default_view: { ...DEFAULT_DUF_PREVIEW.default_view, ...((parsed || {}).default_view || {}) } };
+      return { ...DEFAULT_DUF_PREVIEW, ...(parsed || {}), theme: { ...DEFAULT_DUF_THEME, ...((parsed || {}).theme || {}) }, default_view: { ...DEFAULT_DUF_PREVIEW.default_view, ...((parsed || {}).default_view || {}) } };
     } catch { return DEFAULT_DUF_PREVIEW; }
   };
   const saveDufCustomization = (value: any) => {
@@ -579,6 +595,39 @@ Time: {time}`};return <div key={k} className="rounded-xl border border-line bg-w
             </div>
             <div><h4 className="text-[10px] font-bold uppercase tracking-[.12em] text-ink/35">Panel sizing</h4><div className="mt-2 grid grid-cols-2 gap-3"><label className="text-[10px] font-semibold text-ink/50">Scene width<input type="number" min="180" max="420" value={uiCustomization.duf_preview.left_panel_width} onChange={e=>setUiCustomization({...uiCustomization,duf_preview:{...uiCustomization.duf_preview!,left_panel_width:Number(e.target.value)}})} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-xs" /></label><label className="text-[10px] font-semibold text-ink/50">Inspector width<input type="number" min="260" max="520" value={uiCustomization.duf_preview.right_panel_width} onChange={e=>setUiCustomization({...uiCustomization,duf_preview:{...uiCustomization.duf_preview!,right_panel_width:Number(e.target.value)}})} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-xs" /></label></div></div>
             <div><h4 className="text-[10px] font-bold uppercase tracking-[.12em] text-ink/35">Default viewport</h4><div className="mt-2 grid grid-cols-2 gap-2">{([['skeleton','Skeleton'],['mesh','Mesh'],['wireframe','Wireframe'],['xray','See-through joints'],['detail','Fingers and face'],['grid','Grid'],['invertRotation','Invert pose rotation']] as const).map(([key,label])=><label key={key} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2.5 text-[10px] font-semibold text-ink/55"><input type="checkbox" checked={uiCustomization.duf_preview!.default_view[key]} onChange={e=>setUiCustomization({...uiCustomization,duf_preview:{...uiCustomization.duf_preview!,default_view:{...uiCustomization.duf_preview!.default_view,[key]:e.target.checked}}})} className="h-4 w-4 accent-blueprint" />{label}</label>)}</div></div>
+          </div>}
+        </section>
+
+        <section className="rounded-2xl border border-line bg-paper/35 p-4">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-semibold">DUF Studio theme</h3>
+              <p className="mt-1 text-[10px] leading-4 text-ink/40">Customize the DUF Preview page independently from the main PICD dashboard. The default palette is a dark Daz Studio-style workspace.</p>
+            </div>
+            <button onClick={() => setUiCustomization({...uiCustomization, duf_preview: {...(uiCustomization.duf_preview || DEFAULT_DUF_PREVIEW), theme: DEFAULT_DUF_THEME}})} className="rounded-lg border border-line bg-white px-3 py-2 text-[10px] font-semibold text-ink/55">Reset DUF colors</button>
+          </div>
+          {uiCustomization.duf_preview && <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                ["bg","Workspace background"],["panel","Panels / top bar"],["panel_2","Controls / secondary panels"],
+                ["raised","Raised / hover"],["line","Borders"],["text","Primary text"],["muted","Muted text"],
+                ["accent","Accent"],["accent_ink","Accent text"],["viewport_bg","3D viewport"],
+                ["ok","Success"],["warning","Warning"],["error","Error"]
+              ] as const).map(([key,label]) => (
+                <label key={key} className="text-[10px] font-semibold text-ink/50">{label}
+                  <div className="mt-1 flex items-center gap-2 rounded-lg border border-line bg-white p-1.5">
+                    <input
+                      type="text"
+                      value={uiCustomization.duf_preview!.theme?.[key] ?? DEFAULT_DUF_THEME[key]}
+                      onChange={e=>setUiCustomization({...uiCustomization,duf_preview:{...uiCustomization.duf_preview!,theme:{...DEFAULT_DUF_THEME,...(uiCustomization.duf_preview!.theme || {}),[key]:e.target.value}}})}
+                      className="min-w-0 flex-1 bg-transparent px-1.5 py-1.5 font-mono text-[10px] outline-none"
+                      name={`duf_theme_${key}`}
+                    />
+                    <span className="h-6 w-6 shrink-0 rounded-md border border-black/10" style={{background:uiCustomization.duf_preview!.theme?.[key] ?? DEFAULT_DUF_THEME[key]}} />
+                  </div>
+                </label>
+              ))}
+            </div>
           </div>}
         </section>
 

@@ -28,8 +28,13 @@ const TABS: { id: RightTab; label: string }[] = [
   { id: "file", label: "File" },
 ];
 
+const DEFAULT_DUF_THEME = {
+  bg: "#16181D", panel: "#202329", panel_2: "#292D34", raised: "#343942", line: "#3B414B",
+  text: "#E4E7EC", muted: "#949CAA", accent: "#D98A32", accent_ink: "#1B1207",
+  viewport_bg: "#111318", ok: "#70C58A", warning: "#D6B35A", error: "#E17C72",
+};
 const DEFAULT_DUF_CUSTOMIZATION = {
-  brand_name: "DUF Workspace", show_topbar: true, show_statusbar: true, show_view_toolbar: true,
+  brand_name: "DUF Workspace", theme: DEFAULT_DUF_THEME, show_topbar: true, show_statusbar: true, show_view_toolbar: true,
   left_panel_open: true, right_panel_open: true, left_panel_width: 250, right_panel_width: 330, default_tab: "pose" as RightTab,
   default_view: { skeleton: false, mesh: true, wireframe: false, xray: false, detail: false, grid: true, invertRotation: false },
 };
@@ -39,7 +44,7 @@ function readDufCustomization() {
   if (typeof window === "undefined") return DEFAULT_DUF_CUSTOMIZATION;
   try {
     const parsed = JSON.parse(window.localStorage.getItem(DUF_CUSTOMIZATION_STORAGE_KEY) || "{}");
-    return { ...DEFAULT_DUF_CUSTOMIZATION, ...(parsed || {}), default_view: { ...DEFAULT_DUF_CUSTOMIZATION.default_view, ...((parsed || {}).default_view || {}) } };
+    return { ...DEFAULT_DUF_CUSTOMIZATION, ...(parsed || {}), theme: { ...DEFAULT_DUF_THEME, ...((parsed || {}).theme || {}) }, default_view: { ...DEFAULT_DUF_CUSTOMIZATION.default_view, ...((parsed || {}).default_view || {}) } };
   } catch { return DEFAULT_DUF_CUSTOMIZATION; }
 }
 
@@ -83,7 +88,7 @@ export default function Workspace() {
 
   useEffect(() => {
     const apply = (next: any) => {
-      const merged = { ...DEFAULT_DUF_CUSTOMIZATION, ...(next || {}), default_view: { ...DEFAULT_DUF_CUSTOMIZATION.default_view, ...((next || {}).default_view || {}) } };
+      const merged = { ...DEFAULT_DUF_CUSTOMIZATION, ...(next || {}), theme: { ...DEFAULT_DUF_THEME, ...((next || {}).theme || {}) }, default_view: { ...DEFAULT_DUF_CUSTOMIZATION.default_view, ...((next || {}).default_view || {}) } };
       setDufCustomization(merged);
       setLeftOpen(merged.left_panel_open);
       setRightOpen(merged.right_panel_open);
@@ -312,7 +317,25 @@ export default function Workspace() {
   return (
     <div
       className="app"
-      style={{ "--duf-left-width": `${Math.max(180, Math.min(420, Number(dufCustomization.left_panel_width) || 250))}px`, "--duf-right-width": `${Math.max(260, Math.min(520, Number(dufCustomization.right_panel_width) || 330))}px`, "--duf-topbar-height": dufCustomization.show_topbar ? "46px" : "0px", "--duf-status-height": dufCustomization.show_statusbar ? "28px" : "0px" } as CSSProperties}
+      style={{
+        "--duf-left-width": `${Math.max(180, Math.min(420, Number(dufCustomization.left_panel_width) || 250))}px`,
+        "--duf-right-width": `${Math.max(260, Math.min(520, Number(dufCustomization.right_panel_width) || 330))}px`,
+        "--duf-topbar-height": dufCustomization.show_topbar ? "46px" : "0px",
+        "--duf-status-height": dufCustomization.show_statusbar ? "28px" : "0px",
+        "--duf-bg": dufCustomization.theme?.bg || DEFAULT_DUF_THEME.bg,
+        "--duf-panel": dufCustomization.theme?.panel || DEFAULT_DUF_THEME.panel,
+        "--duf-panel-2": dufCustomization.theme?.panel_2 || DEFAULT_DUF_THEME.panel_2,
+        "--duf-raised": dufCustomization.theme?.raised || DEFAULT_DUF_THEME.raised,
+        "--duf-line": dufCustomization.theme?.line || DEFAULT_DUF_THEME.line,
+        "--duf-text": dufCustomization.theme?.text || DEFAULT_DUF_THEME.text,
+        "--duf-muted": dufCustomization.theme?.muted || DEFAULT_DUF_THEME.muted,
+        "--duf-accent": dufCustomization.theme?.accent || DEFAULT_DUF_THEME.accent,
+        "--duf-accent-ink": dufCustomization.theme?.accent_ink || DEFAULT_DUF_THEME.accent_ink,
+        "--duf-viewport-bg": dufCustomization.theme?.viewport_bg || DEFAULT_DUF_THEME.viewport_bg,
+        "--duf-ok": dufCustomization.theme?.ok || DEFAULT_DUF_THEME.ok,
+        "--duf-warning": dufCustomization.theme?.warning || DEFAULT_DUF_THEME.warning,
+        "--duf-error": dufCustomization.theme?.error || DEFAULT_DUF_THEME.error,
+      } as CSSProperties}
       onDragEnter={(e) => {
         e.preventDefault();
         dragDepth.current++;
