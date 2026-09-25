@@ -97,7 +97,27 @@ function formatAgo(last: Date | null, now: number): string {
 
 function errorMessage(e: unknown, fallback: string): string {
   if (e instanceof ApiError || e instanceof Error) return e.message;
+  if (e && typeof e === "object") {
+    const maybe = e as { message?: unknown; detail?: unknown };
+    if (typeof maybe.detail === "string" && maybe.detail.trim()) return maybe.detail;
+    if (typeof maybe.message === "string" && maybe.message.trim()) return maybe.message;
+    try {
+      return `${fallback}: ${JSON.stringify(e)}`;
+    } catch {}
+  }
   return fallback;
+}
+
+function releaseErrorMessage(e: unknown, fallback: string, step: string): string {
+  const message = errorMessage(e, fallback);
+  return `${message} (step: ${step})`;
+}
+
+function triggerMessageTone(message: string): "success" | "info" | "error" {
+  if (message.startsWith("Released") || message.startsWith("Selected scan released") || message.startsWith("Opening")) return "success";
+  if (message.startsWith("Moved") || message.startsWith("Deleted")) return "success";
+  if (message.includes("(step:")) return "error";
+  return "info";
 }
 
 export default function Home() {
@@ -289,23 +309,30 @@ export default function Home() {
     if (!canProcess || triggering || (stats?.queue_depth ?? 0) === 0) return;
     setTriggering(true);
     setTriggerMessage(null);
+    let releaseStep = "loading operational config";
     try {
       const operational = await fetchOperationalConfig(settings);
       if (operational.processing.editor_mode === "web") {
+        releaseStep = "finding next queued scan";
         const queued = await fetchScans(settings, { status: "queued", limit: 1, skip: 0 });
         const next = queued.scans?.[0];
         if (!next) throw new ApiError("No queued scan is available.");
+        releaseStep = "starting browser Photo Workspace session";
         const result = await startWebProcessing(settings, next.scan_id);
         setTriggerMessage("Opening Photo Workspace → Artwork for the next scan…");
+        releaseStep = "refreshing board";
         await refresh(settings);
+        releaseStep = "opening Photo Workspace";
         router.push(`/photo-workspace?pipeline=${encodeURIComponent(result.scan_id)}`);
       } else {
+        releaseStep = "releasing next scan to desktop worker";
         const result = await triggerNextScan(settings);
         setTriggerMessage(`Released ${result.scan_id.slice(0, 8)}… for processing`);
+        releaseStep = "refreshing board";
         await refresh(settings);
       }
     } catch (e) {
-      setTriggerMessage(errorMessage(e, "Could not release the next scan."));
+      setTriggerMessage(releaseErrorMessage(e, "Could not release the next scan.", releaseStep));
     } finally {
       setTriggering(false);
     }
@@ -320,24 +347,30 @@ export default function Home() {
       if (!canProcess) return;
       setMovingScan(scanId);
       setTriggerMessage(null);
+      let releaseStep = "loading operational config";
       try {
         const operational = await fetchOperationalConfig(settings);
         if (operational.processing.editor_mode === "web") {
+          releaseStep = "starting browser Photo Workspace session";
           const result = await startWebProcessing(settings, scanId);
           recentMoveRef.current.set(scanId, Date.now());
           playCardMoveSound(loadNotificationSound());
           setTriggerMessage("Opening Photo Workspace → Artwork for this scan…");
+          releaseStep = "refreshing board";
           await refresh(settings);
+          releaseStep = "opening Photo Workspace";
           router.push(`/photo-workspace?pipeline=${encodeURIComponent(result.scan_id)}`);
         } else {
+          releaseStep = "releasing selected scan to desktop worker";
           const result = await processSelectedScan(settings, scanId);
           recentMoveRef.current.set(scanId, Date.now());
           playCardMoveSound(loadNotificationSound());
           setTriggerMessage(result.message ?? `Released ${scanId.slice(0, 8)}… for processing`);
+          releaseStep = "refreshing board";
           await refresh(settings);
         }
       } catch (e) {
-        setTriggerMessage(errorMessage(e, "Could not release the selected scan."));
+        setTriggerMessage(releaseErrorMessage(e, "Could not release the selected scan.", releaseStep));
       } finally { setMovingScan(null); }
       return;
     }
@@ -493,9 +526,11 @@ export default function Home() {
 
         {triggerMessage && (
           <div className={`mb-3 animate-fade-in-up rounded-lg border px-3 py-2 text-xs ${
-            triggerMessage.startsWith("Released")
+            triggerMessageTone(triggerMessage) === "success"
               ? "border-sage/20 bg-sage/10 text-sage"
-              : "border-brick/20 bg-brick/10 text-brick"
+              : triggerMessageTone(triggerMessage) === "error"
+              ? "border-brick/20 bg-brick/10 text-brick"
+              : "border-blueprint/20 bg-blueprint/10 text-blueprint"
           }`}>
             {triggerMessage}
           </div>
