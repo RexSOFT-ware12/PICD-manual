@@ -32,7 +32,7 @@ function Thumb({ src, alt }: { src: string; alt: string }) {
   return <div className="relative h-14 w-11 overflow-hidden rounded bg-ink/5">{!loaded && <div className="absolute inset-0 animate-pulse bg-ink/10" />}<Image ref={imgRef} src={src} alt={alt} fill sizes="48px" className={`object-cover transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`} unoptimized onLoad={() => setLoaded(true)} onError={() => setFailed(true)} /></div>;
 }
 
-export default function ScanCard({ scan, style, onRetried, onMoved, draggable = false, deleteMode = false, deleting = false, onDelete, onDropBefore, compact = false, displayStatus }: { scan: ScanSummary; style?: CSSProperties; onRetried?: () => void; onMoved?: () => void; draggable?: boolean; deleteMode?: boolean; deleting?: boolean; onDelete?: (scanId: string) => void; onDropBefore?: (scanId: string, targetScanId: string) => void; compact?: boolean; displayStatus?: "delivered" }) {
+export default function ScanCard({ scan, style, onRetried, onMoved, draggable = false, deleteMode = false, deleting = false, onDelete, onDropBefore, compact = false, displayStatus }: { scan: ScanSummary; style?: CSSProperties; onRetried?: () => void; onMoved?: () => void; draggable?: boolean; deleteMode?: boolean; deleting?: boolean; onDelete?: (scanId: string) => void; onDropBefore?: (scanId: string, targetScanId: string) => void; compact?: boolean; displayStatus?: "processing" | "delivered" }) {
   const [open, setOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const imageSettings = loadSettings();
@@ -44,7 +44,7 @@ export default function ScanCard({ scan, style, onRetried, onMoved, draggable = 
     if (!draggable) { e.preventDefault(); return; }
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/scan-id", scan.scan_id);
-    e.dataTransfer.setData("text/scan-status", scan.status);
+    e.dataTransfer.setData("text/scan-status", shownStatus);
     setDragging(true);
   };
 
@@ -141,7 +141,7 @@ export default function ScanCard({ scan, style, onRetried, onMoved, draggable = 
       {shownStatus === "delivered" && <p className="mt-2 text-[10px] font-semibold uppercase tracking-[.12em] text-sage">✓ Result delivered</p>}
       {scan.delivery_status === "failed" && scan.status === "completed" && <p className="mt-2 line-clamp-2 rounded bg-amber/10 px-2 py-1 text-[10px] text-amber">Delivery failed — click to review/retry</p>}
       {scan.result?.measurements_output && shownStatus === "delivered" && (() => { const m=scan.result.measurements_output; const vals=[m.height_cm,m.weight_kg,m.bust_cm ?? m.chest_cm,m.waist_cm,m.hips_cm].filter(v=>v!=null); return vals.length ? <p className="mt-1 font-mono text-[10px] text-ink/45">{vals.slice(0,5).map((v,i)=>String(v)).join(" · ")}</p> : null; })()}
-      {draggable && <p className="mt-1.5 text-[9px] uppercase tracking-[.14em] text-ink/25">{scan.status === "queued" ? "drag to arrange or process" : "drag to queue"}</p>}
+      {draggable && <p className="mt-1.5 text-[9px] uppercase tracking-[.14em] text-ink/25">{shownStatus === "queued" ? "drag to arrange or process" : "drag to queue"}</p>}
     </div>
   );
 }

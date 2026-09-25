@@ -60,6 +60,9 @@ export interface ScanSummary {
   delivery_attempts?: number;
   has_stored_images?: boolean;
   image_analysis?: ImageAnalysis | null;
+  web_processing?: boolean;
+  processing_requested?: boolean;
+  processing_path?: string | null;
   processing_started_at?: string | null;
   completed_at?: string | null;
   failed_at?: string | null;

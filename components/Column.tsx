@@ -93,13 +93,13 @@ export default function Column({
             scan={scan}
             onRetried={onRetried}
             onMoved={onMoved}
-            draggable={(scan.status === "queued" && (canReorder || canProcess)) || ((scan.status === "failed" || scan.status === "processing") && canMove)}
+            draggable={(scan.status === "queued" && status !== "processing" && (canReorder || canProcess)) || (scan.status === "queued" && status === "processing" && (canMove || canProcess)) || ((scan.status === "failed" || scan.status === "processing") && canMove)}
             deleteMode={deleteMode}
             deleting={deletingScan === scan.scan_id}
             onDelete={canDelete ? onDelete : undefined}
             onDropBefore={canReorder ? onDropBefore : undefined}
             compact={compact}
-            displayStatus={boardStatus}
+            displayStatus={boardStatus ?? (scan.status === "queued" && status === "processing" ? "processing" : undefined)}
             style={{ animationDelay: `${Math.min(i * STAGGER_STEP_MS, MAX_STAGGER_MS)}ms` }}
           />
         ))}

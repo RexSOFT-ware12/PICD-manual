@@ -112,7 +112,7 @@ export default function ScanDetailModal({
   /** Called after a successful retry so the board can refresh sooner
    * than the next poll tick, instead of waiting up to REFRESH_MS. */
   onRetried?: () => void;
-  displayStatus?: "delivered";
+  displayStatus?: "processing" | "delivered";
 }) {
   const [retryState, setRetryState] = useState<
     "idle" | "retrying" | "done" | "error"

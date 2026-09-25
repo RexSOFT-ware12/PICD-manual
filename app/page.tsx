@@ -120,6 +120,14 @@ function triggerMessageTone(message: string): "success" | "info" | "error" {
   return "info";
 }
 
+function isReleasedQueuedScan(scan: ScanSummary): boolean {
+  return scan.status === "queued" && !!(scan.web_processing || scan.processing_requested);
+}
+
+function isResumableWebStartConflict(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 409 && e.message.includes("already being processed");
+}
+
 export default function Home() {
   const router = useRouter();
   const [settings, setSettings] = useState<Settings>({ baseUrl: "", apiKey: "" });
@@ -318,12 +326,18 @@ export default function Home() {
         const next = queued.scans?.[0];
         if (!next) throw new ApiError("No queued scan is available.");
         releaseStep = "starting browser Photo Workspace session";
-        const result = await startWebProcessing(settings, next.scan_id);
+        let resultScanId = next.scan_id;
+        try {
+          const result = await startWebProcessing(settings, next.scan_id);
+          resultScanId = result.scan_id;
+        } catch (e) {
+          if (!isResumableWebStartConflict(e)) throw e;
+        }
         setTriggerMessage("Opening Photo Workspace → Artwork for the next scan…");
         releaseStep = "refreshing board";
         await refresh(settings);
         releaseStep = "opening Photo Workspace";
-        router.push(`/photo-workspace?pipeline=${encodeURIComponent(result.scan_id)}`);
+        router.push(`/photo-workspace?pipeline=${encodeURIComponent(resultScanId)}`);
       } else {
         releaseStep = "releasing next scan to desktop worker";
         const result = await triggerNextScan(settings);
@@ -352,14 +366,20 @@ export default function Home() {
         const operational = await fetchOperationalConfig(settings);
         if (operational.processing.editor_mode === "web") {
           releaseStep = "starting browser Photo Workspace session";
-          const result = await startWebProcessing(settings, scanId);
+          let resultScanId = scanId;
+          try {
+            const result = await startWebProcessing(settings, scanId);
+            resultScanId = result.scan_id;
+          } catch (e) {
+            if (!isResumableWebStartConflict(e)) throw e;
+          }
           recentMoveRef.current.set(scanId, Date.now());
           playCardMoveSound(loadNotificationSound());
           setTriggerMessage("Opening Photo Workspace → Artwork for this scan…");
           releaseStep = "refreshing board";
           await refresh(settings);
           releaseStep = "opening Photo Workspace";
-          router.push(`/photo-workspace?pipeline=${encodeURIComponent(result.scan_id)}`);
+          router.push(`/photo-workspace?pipeline=${encodeURIComponent(resultScanId)}`);
         } else {
           releaseStep = "releasing selected scan to desktop worker";
           const result = await processSelectedScan(settings, scanId);
@@ -377,7 +397,7 @@ export default function Home() {
 
     if (target !== "queued" || movingScan) return;
     if (!canMove) return;
-    if (scan.status !== "failed" && scan.status !== "processing") return;
+    if (scan.status !== "failed" && scan.status !== "processing" && !isReleasedQueuedScan(scan)) return;
     setMovingScan(scanId);
     setTriggerMessage(null);
     try {
@@ -438,9 +458,12 @@ export default function Home() {
   };
 
   const byBoardStatus = (status: BoardStatus) => scans.filter((s) => {
-    if (showOnlyActive && s.status !== "queued" && s.status !== "processing") return false;
+    const releasedQueued = isReleasedQueuedScan(s);
+    if (showOnlyActive && s.status !== "queued" && s.status !== "processing" && !releasedQueued) return false;
     if (status === "delivered") return s.status === "completed" && s.delivery_status === "delivered";
     if (status === "completed") return s.status === "completed" && s.delivery_status !== "delivered";
+    if (status === "processing") return s.status === "processing" || releasedQueued;
+    if (status === "queued") return s.status === "queued" && !releasedQueued;
     return s.status === status;
   });
 
