@@ -19,8 +19,11 @@ const defaultNav = [
   { id:"collections", href: "/collections", label: "Collections", icon: "▤", section: "Control", permission: "collections.read", visible:true, order:9 },
   { id:"csv-import", href: "/csv-import", label: "CSV importer", icon: "⇅", section: "Control", permission: "csv.read", visible:true, order:10 },
   { id:"daz-assets", href: "/daz-assets", label: "Daz Assets", icon: "◈", section: "Control", permission: "daz.read", visible:true, order:11 },
-  { id:"system", href: "/system", label: "System settings", icon: "⌘", section: "Admin", permission: "system.read", visible:true, order:12 },
-  { id:"admins", href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage", visible:true, order:13 },
+  { id:"photo-workspace", href: "/photo-workspace", label: "Photo workspace", icon: "▧", section: "Workspaces", permission: "workspace.read", visible:true, order:12 },
+  { id:"illustrator", href: "/illustrator", label: "Artwork", icon: "✎", section: "Workspaces", permission: "workspace.read", visible:true, order:13 },
+  { id:"duf-preview", href: "/duf-preview", label: "Duf Preview", icon: "◐", section: "Workspaces", permission: "workspace.read", visible:true, order:14 },
+  { id:"system", href: "/system", label: "System settings", icon: "⌘", section: "Admin", permission: "system.read", visible:true, order:15 },
+  { id:"admins", href: "/admins", label: "Admin accounts", icon: "♙", section: "Admin", permission: "admins.manage", visible:true, order:16 },
 ];
 
 let sessionAdminCache: AuthMe | null = null;

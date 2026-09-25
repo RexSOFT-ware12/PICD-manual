@@ -1,1 +1,30 @@
-{}
+{
+  "app/duf-preview/page.tsx -> @/components/Workspace": {
+    "id": 7686,
+    "files": [
+      "static/chunks/b536a0f1.32592d1401b98862.js",
+      "static/chunks/2691.a240ca78b57ce33e.js",
+      "static/chunks/7686.1da31a16526be473.js"
+    ]
+  },
+  "app/illustrator/page.tsx -> @/components/IllustratorEditor": {
+    "id": 2126,
+    "files": [
+      "static/chunks/9065.730f91e799cd39a4.js",
+      "static/chunks/2126.d2714e6a52a0a543.js"
+    ]
+  },
+  "app/photo-workspace/page.tsx -> @/components/Editor": {
+    "id": 9275,
+    "files": [
+      "static/chunks/6656.0603e1dc35d40e7f.js",
+      "static/chunks/9275.88ddaa474f317b69.js"
+    ]
+  },
+  "components/Editor.tsx -> @imgly/background-removal": {
+    "id": 6341,
+    "files": [
+      "static/chunks/6341.ea8f3145583b4d4f.js"
+    ]
+  }
+}
