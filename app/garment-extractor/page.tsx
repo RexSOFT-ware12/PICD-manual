@@ -61,7 +61,7 @@ export default function GarmentExtractorPage() {
       }
     } catch (e) {
       setError(e instanceof ApiError
-        ? `${e.message}. Make sure the PICD backend implements the FabricNow proxy described in GARMENT_EXTRACTOR_BACKEND_DRAFT.md.`
+        ? `${e.message}.`
         : "Garment extraction failed. Check the PICD backend connection and try again.");
     } finally {
       setBusy(false);
