@@ -602,6 +602,70 @@ export const fetchLogs = (s: ConnectionSettings, level="all") => request<{items:
 export const updateSystemControl = (s: ConnectionSettings, body: {paused?:boolean;maintenance?:boolean}) => postJson<SystemState>("/monitor/system/control",s,body);
 export const updateFeatures = (s: ConnectionSettings, body: Record<string,boolean>) => postJson<SystemState>("/monitor/system/features",s,body);
 export const updateSystemConfig = (s: ConnectionSettings, body: Record<string,number>) => postJson<SystemState>("/monitor/system/config",s,body);
+
+export type FabricNowConfig = {
+  api_url: string;
+  company_id: string;
+  google_client_id: string;
+  api_key_configured: boolean;
+};
+
+export type FabricNowConfigUpdate = {
+  api_url: string;
+  company_id: string;
+  google_client_id: string;
+  api_key?: string;
+  clear_api_key?: boolean;
+};
+
+export const fetchFabricNowConfig = (s: ConnectionSettings) =>
+  request<FabricNowConfig>("/monitor/system/fabricnow-config", s);
+
+export const updateFabricNowConfig = (s: ConnectionSettings, body: FabricNowConfigUpdate) =>
+  postJson<FabricNowConfig>("/monitor/system/fabricnow-config", s, body);
+
+export async function submitGarmentExtraction(settings: ConnectionSettings, file: File): Promise<Response> {
+  if (!settings.baseUrl) throw new ApiError("No PICD backend URL configured yet.");
+  const form = new FormData();
+  form.append("file", file, file.name);
+  const url = `${settings.baseUrl.replace(/\/$/, "")}/monitor/fabricnow/garment-extractor`;
+  const send = () => fetch(url, {
+    method: "POST",
+    headers: authHeaders(settings.apiKey ? { "X-API-Key": settings.apiKey } : {}),
+    credentials: "include",
+    body: form,
+    cache: "no-store",
+  });
+
+  try {
+    let response = await send();
+    if (response.status === 403) {
+      let detail = "";
+      try { detail = (await response.clone().json())?.detail || ""; } catch {}
+      if (detail === "CSRF validation failed") {
+        await refreshCSRF(settings);
+        response = await send();
+      }
+    }
+    if (!response.ok) {
+      let detail = `PICD backend returned ${response.status}`;
+      try {
+        const body = await response.clone().json();
+        if (typeof body?.detail === "string") detail = body.detail;
+        else if (typeof body?.error === "string") detail = body.error;
+      } catch {
+        const text = await response.clone().text();
+        if (text) detail = text.slice(0, 500);
+      }
+      throw new ApiError(detail, response.status);
+    }
+    return response;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("Couldn't reach the PICD backend. Check the URL and server connection.");
+  }
+}
+
 export type OperationalConfig = {
   processing: { photoshop_timeout_seconds:number; illustrator_timeout_seconds:number; daz_timeout_seconds:number; image_download_timeout_seconds:number; processing_lease_seconds:number; worker_heartbeat_seconds:number; worker_offline_after_seconds:number; editor_mode:"desktop"|"web" };
   delivery: { http_timeout_seconds:number; max_attempts:number; retry_delays_seconds:number[]; pending_recovery_limit:number; automatic_delivery:boolean };

@@ -151,9 +151,10 @@ export default function SystemPage({ section = "overview" }: { section?: string 
     { id: "photo-workspace", href: "/photo-workspace", label: "Photo workspace", icon: "▧", section: "Workspaces", permission: "workspace.read", visible: true, order: 12 },
     { id: "illustrator", href: "/illustrator", label: "Artwork", icon: "✎", section: "Workspaces", permission: "workspace.read", visible: true, order: 13 },
     { id: "duf-preview", href: "/duf-preview", label: "Duf Preview", icon: "◐", section: "Workspaces", permission: "workspace.read", visible: true, order: 14 },
+    { id: "garment-extractor", href: "/garment-extractor", label: "Garment Extractor", icon: "✂", section: "Workspaces", permission: "workspace.read", visible: true, order: 15 },
   ];
   // Older PICD API deployments validate navigation IDs against their own allow-list
-  // and do not yet know the three workspace routes. Keep those workspace entries
+  // and do not yet know the frontend workspace routes. Keep those workspace entries
   // in the frontend navigation model and persist their customization locally, while
   // sending only API-supported navigation entries to the backend. This prevents the
   // "Unknown navigation page: photo-workspace" error without removing the workspaces.

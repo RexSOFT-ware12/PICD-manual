@@ -86,11 +86,13 @@ button:focus-visible, input:focus-visible, [role="button"]:focus-visible {
 
 /* The monitoring dashboard is intentionally desktop-only. */
 .mobile-unavailable { display: none; }
+.desktop-login-page { display: block; }
 @media (max-width: 767px) {
   html, body {
     overflow: hidden;
   }
   .desktop-dashboard { display: none !important; }
+  .desktop-login-page { display: none !important; }
   .mobile-unavailable {
     min-height: 100dvh;
     display: flex;
