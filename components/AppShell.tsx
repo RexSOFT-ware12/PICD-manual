@@ -14,6 +14,7 @@ const defaultNav = [
   { id:"notifications", href: "/notifications", label: "Notifications", icon: "♢", section: "Monitor", permission: "alerts.read", visible:true, order:4 },
   { id:"workers", href: "/workers", label: "Workers", icon: "⚙", section: "Control", permission: "workers.read", visible:true, order:5 },
   { id:"logs", href: "/logs", label: "System logs", icon: "≡", section: "Control", permission: "logs.read", visible:true, order:6 },
+  { id:"developer-studio", href: "/developer-studio", label: "Developer Studio", icon: "⌘", section: "Admin", permission: "system.read", visible:true, order:18 },
   { id:"audit", href: "/audit", label: "Audit logs", icon: "✓", section: "Control", permission: "audit.read", visible:true, order:7 },
   { id:"gam", href: "/gam", label: "GAM", icon: "◇", section: "Control", permission: "gam.read", visible:true, order:8 },
   { id:"collections", href: "/collections", label: "Collections", icon: "▤", section: "Control", permission: "collections.read", visible:true, order:9 },
