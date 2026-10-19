@@ -56,6 +56,23 @@ function editorLanguage(path: string) {
   return "plaintext";
 }
 
+function fileTypeLabel(path: string) {
+  const ext = path.split(".").pop()?.toLowerCase() || "";
+  const labels: Record<string, string> = {
+    py: "PY", js: "JS", jsx: "JSX", ts: "TS", tsx: "TSX", json: "JSON",
+    yml: "YML", yaml: "YAML", md: "MD", css: "CSS", html: "HTML", sh: "SH",
+  };
+  return labels[ext] || (ext ? ext.slice(0, 4).toUpperCase() : "FILE");
+}
+
+function languageLabel(path: string) {
+  const language = editorLanguage(path);
+  return language === "javascript" ? "JavaScript" :
+    language === "typescript" ? "TypeScript" :
+    language === "plaintext" ? "Plain Text" :
+    language.charAt(0).toUpperCase() + language.slice(1);
+}
+
 function errorMessage(error: unknown) {
   const status = error instanceof ApiError ? error.status : undefined;
   const detail = error instanceof Error ? error.message : "An unexpected error occurred.";
@@ -104,6 +121,8 @@ export default function DeveloperStudioPage() {
   const [submitting, setSubmitting] = useState(false);
   const [runningExtendScript, setRunningExtendScript] = useState(false);
   const [ideFullscreen, setIdeFullscreen] = useState(false);
+  const [explorerVisible, setExplorerVisible] = useState(true);
+  const [terminalVisible, setTerminalVisible] = useState(true);
   const [terminalIds, setTerminalIds] = useState<number[]>([1]);
   const [activeTerminalId, setActiveTerminalId] = useState(1);
   const nextTerminalId = useRef(2);
@@ -303,7 +322,9 @@ export default function DeveloperStudioPage() {
         className={`mb-0.5 flex w-full items-center gap-2 rounded-lg py-2 pr-3 text-left text-xs ${selected === file.path ? "bg-[var(--picd-page-accent)]/15 text-[var(--picd-page-accent)]" : "text-[var(--picd-page-text)] hover:bg-[var(--picd-page-bg)]"} disabled:opacity-50`}
         style={{ paddingLeft: `${12 + depth * 14}px` }}
       >
-        <span className="w-3 shrink-0 text-center">{file.directory ? expanded ? "▾" : "▸" : "‹›"}</span>
+        <span className={`w-8 shrink-0 text-center font-mono text-[9px] font-bold ${file.directory ? "text-[var(--picd-page-muted)]" : "text-[var(--picd-page-accent)]"}`} title={file.directory ? "Folder" : `${fileTypeLabel(file.name)} file`}>
+          {file.directory ? expanded ? "▾" : "▸" : fileTypeLabel(file.name)}
+        </span>
         <span className="min-w-0 flex-1 truncate">{file.name}</span>
         {isDirty && <span className="text-[var(--picd-warning)]" title="Unsaved changes">●</span>}
         {file.directory && <span className="text-[var(--picd-page-muted)]">{folderContents[file.path] && folderContents[file.path].length === 0 ? "Empty" : ""}</span>}
@@ -330,19 +351,30 @@ export default function DeveloperStudioPage() {
     {pullRequest && <div className="mb-4 rounded-xl border border-[var(--picd-success)] bg-[var(--picd-page-surface)] px-4 py-3 text-sm"><p className="font-semibold text-[var(--picd-success)]">Pull request created</p><p className="mt-1 text-[var(--picd-page-muted)]">{pullRequest.branch && `Branch: ${pullRequest.branch} · `}{pullRequest.commit && `Commit: ${pullRequest.commit}`}</p><a className="mt-2 inline-block font-semibold text-[var(--picd-page-accent)] underline" href={pullRequest.url} target="_blank" rel="noreferrer">Open pull request for review</a></div>}
 
     <div className={ideFullscreen
-      ? "fixed inset-0 z-[200] grid h-[100dvh] min-h-0 grid-rows-[minmax(0,1fr)_minmax(180px,32vh)] gap-2 bg-[var(--picd-page-bg)] p-2"
+      ? `fixed inset-0 z-[200] grid h-[100dvh] min-h-0 ${terminalVisible ? "grid-rows-[minmax(0,1fr)_minmax(180px,32vh)]" : "grid-rows-[minmax(0,1fr)]"} gap-2 bg-[var(--picd-page-bg)] p-2`
       : "grid min-h-[620px] gap-4 xl:grid-cols-[270px_minmax(0,1fr)]"}>
-      <div className={ideFullscreen ? "grid min-h-0 gap-2 xl:grid-cols-[280px_minmax(0,1fr)]" : "contents"}>
+      <div className={ideFullscreen
+        ? `grid min-h-0 gap-2 ${explorerVisible ? "xl:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"}`
+        : "contents"}>
+      {(!ideFullscreen || explorerVisible) &&
       <section className={`${PANEL} flex ${ideFullscreen ? "min-h-0 rounded-none" : "min-h-[400px]"} flex-col overflow-hidden`}>
         <div className="flex items-center justify-between border-b border-[var(--picd-page-border)] px-4 py-3"><span className="text-xs font-bold uppercase tracking-wider">Repository explorer</span><span className="text-[10px] text-[var(--picd-page-muted)]">/{repository}</span></div>
         <div className="flex-1 overflow-y-auto p-2">{renderFileTree(files)}{!files.length && <p className="p-3 text-xs text-[var(--picd-page-muted)]">{loading ? "Loading…" : "No supported files in this repository."}</p>}</div>
         <div className="border-t border-[var(--picd-page-border)] p-3 text-[10px] leading-5 text-[var(--picd-page-muted)]">Only files supported by the backend are listed. Files must already exist in the repository.</div>
       </section>
+      }
 
       <section className={`${PANEL} flex min-w-0 flex-col overflow-hidden ${ideFullscreen ? "min-h-0 rounded-none" : ""}`}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--picd-page-border)] px-4 py-3">
-          <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wider">Code editor</p><p className="mt-1 truncate text-[11px] text-[var(--picd-page-muted)]">{current?.path || "Choose a file from the repository tree"}{current && current.content !== current.savedContent ? " · modified" : ""}</p></div>
-          <div className="flex flex-wrap gap-2">{current?.path.toLowerCase().endsWith(".jsx") && <button className={BUTTON} onClick={runExtendScript} disabled={runningExtendScript || loading}>{runningExtendScript ? "Running in Photoshop…" : "Run in Photoshop"}</button>}<button className={BUTTON} onClick={() => current && updateContent(current.savedContent)} disabled={!current || current.content === current.savedContent}>Discard file changes</button><button className={BUTTON} onClick={() => { setReviewing(true); setError(""); }} disabled={!dirty || dirtyPaths.length > 20}>Review changes</button><button className={BUTTON} onClick={() => setIdeFullscreen(value => !value)} aria-label={ideFullscreen ? "Exit full screen IDE" : "Enter full screen IDE"}>{ideFullscreen ? "Exit full screen" : "Full screen IDE"}</button></div>
+          <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wider">Code editor{current && <span className="ml-2 font-normal normal-case text-[var(--picd-page-muted)]">{languageLabel(current.path)}</span>}</p><p className="mt-1 truncate text-[11px] text-[var(--picd-page-muted)]">{current?.path || "Choose a file from the repository tree"}{current && current.content !== current.savedContent ? " · modified" : ""}</p></div>
+          <div className="flex flex-wrap gap-2">
+            {ideFullscreen && <button className={BUTTON} onClick={() => setExplorerVisible(value => !value)} aria-pressed={explorerVisible}>{explorerVisible ? "Hide Explorer" : "Show Explorer"}</button>}
+            {ideFullscreen && <button className={BUTTON} onClick={() => setTerminalVisible(value => !value)} aria-pressed={terminalVisible}>{terminalVisible ? "Hide Terminal" : "Show Terminal"}</button>}
+            {current?.path.toLowerCase().endsWith(".jsx") && <button className={BUTTON} onClick={runExtendScript} disabled={runningExtendScript || loading}>{runningExtendScript ? "Running in Photoshop…" : "Run in Photoshop"}</button>}
+            <button className={BUTTON} onClick={() => current && updateContent(current.savedContent)} disabled={!current || current.content === current.savedContent}>Discard file changes</button>
+            <button className={BUTTON} onClick={() => { setReviewing(true); setError(""); }} disabled={!dirty || dirtyPaths.length > 20}>Review changes</button>
+            <button className={BUTTON} onClick={() => setIdeFullscreen(value => !value)} aria-label={ideFullscreen ? "Exit full screen IDE" : "Enter full screen IDE"}>{ideFullscreen ? "Exit full screen" : "Full screen IDE"}</button>
+          </div>
         </div>
         {!reviewing && Object.keys(buffers).length > 0 && <div className="flex overflow-x-auto border-b border-[var(--picd-page-border)]">{Object.values(buffers).map(file => <button key={file.path} onClick={() => setSelected(file.path)} className={`max-w-56 truncate border-r border-[var(--picd-page-border)] px-3 py-2 text-[11px] ${selected === file.path ? "bg-[var(--picd-page-bg)] text-[var(--picd-page-accent)]" : "text-[var(--picd-page-muted)]"}`}>{file.path.split("/").pop()}{file.content !== file.savedContent ? " ●" : ""}</button>)}</div>}
         {reviewing && dirty ? <div className="max-h-[600px] flex-1 overflow-auto p-4">
@@ -354,11 +386,11 @@ export default function DeveloperStudioPage() {
           {dirtyPaths.length > 20 && <p className="mt-3 text-sm text-[var(--picd-error)]">A pull request can include no more than 20 edited files.</p>}
           <div className="mt-5 grid gap-3 md:grid-cols-2"><label className="text-xs font-semibold">Commit / pull request title<input value={title} onChange={e => setTitle(e.target.value)} maxLength={200} required placeholder="Describe the change" className="mt-1 w-full rounded-lg border border-[var(--picd-page-border)] bg-[var(--picd-page-surface)] px-3 py-2 text-sm font-normal text-[var(--picd-page-text)] outline-none focus:border-[var(--picd-page-accent)]" /></label><label className="text-xs font-semibold">Description <span className="font-normal text-[var(--picd-page-muted)]">(optional)</span><textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Context for reviewers" className="mt-1 w-full rounded-lg border border-[var(--picd-page-border)] bg-[var(--picd-page-surface)] px-3 py-2 text-sm font-normal text-[var(--picd-page-text)] outline-none focus:border-[var(--picd-page-accent)]" /></label></div>
           <div className="mt-4 flex flex-wrap items-center gap-3"><button className="rounded-lg bg-[var(--picd-page-accent)] px-4 py-2 text-xs font-bold text-[var(--picd-page-surface)] disabled:opacity-40" onClick={createPullRequest} disabled={!title.trim() || !status?.base_branch || !dirtyPaths.length || dirtyPaths.length > 20 || submitting}>{submitting ? "Creating pull request…" : "Create pull request"}</button><button className={BUTTON} onClick={() => setReviewing(false)} disabled={submitting}>Back to editor</button><span className="text-[11px] text-[var(--picd-page-muted)]">Creates a branch and pull request. It does not write directly to the deploy branch.</span></div>
-        </div> : <div className={`${ideFullscreen ? "min-h-0" : "min-h-[420px]"} flex-1`}>{current ? <MonacoEditor height={ideFullscreen ? "calc(68dvh - 145px)" : "min(62vh, 720px)"} theme="vs-dark" language={editorLanguage(current.path)} value={current.content} onMount={registerEditorProviders} onChange={value => updateContent(value ?? "")} options={{ automaticLayout: true, minimap: { enabled: true }, fontSize: 13, tabSize: 4, wordWrap: "off", scrollBeyondLastLine: false, renderWhitespace: "selection", stickyScroll: { enabled: true }, bracketPairColorization: { enabled: true }, quickSuggestions: true, suggestOnTriggerCharacters: true }} /> : <div className={`flex items-center justify-center text-sm text-[var(--picd-page-muted)] ${ideFullscreen ? "h-full" : "h-[420px]"}`}>Open a repository file to start editing.</div>}</div>}
+        </div> : <div className={`${ideFullscreen ? "min-h-0" : "min-h-[420px]"} flex-1`}>{current ? <MonacoEditor height={ideFullscreen ? (terminalVisible ? "calc(68dvh - 145px)" : "calc(100dvh - 145px)") : "min(62vh, 720px)"} theme="vs-dark" language={editorLanguage(current.path)} value={current.content} onMount={registerEditorProviders} onChange={value => updateContent(value ?? "")} options={{ automaticLayout: true, minimap: { enabled: true }, fontSize: 13, tabSize: 4, wordWrap: "off", scrollBeyondLastLine: false, renderWhitespace: "selection", stickyScroll: { enabled: true }, bracketPairColorization: { enabled: true }, quickSuggestions: true, suggestOnTriggerCharacters: true }} /> : <div className={`flex items-center justify-center text-sm text-[var(--picd-page-muted)] ${ideFullscreen ? "h-full" : "h-[420px]"}`}>Open a repository file to start editing.</div>}</div>}
         {!reviewing && <div className="border-t border-[var(--picd-page-border)] px-4 py-2 text-[10px] text-[var(--picd-page-muted)]">Monaco editor · edits remain in this browser until submitted as a GitHub pull request.</div>}
       </section>
       </div>
-      {ideFullscreen && <section aria-label="Integrated terminal panel" className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--picd-page-border)] bg-[#10151e]">
+      {ideFullscreen && <section aria-label="Integrated terminal panel" className={`${terminalVisible ? "flex" : "hidden"} min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--picd-page-border)] bg-[#10151e]`}>
         <div className="flex min-h-11 items-center gap-1 overflow-x-auto border-b border-white/10 px-2 text-white">
           <span className="shrink-0 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Terminal</span>
           {terminalIds.map(id => <div key={id} className={`flex shrink-0 items-center rounded-t-md border border-b-0 ${activeTerminalId === id ? "border-white/15 bg-white/10" : "border-transparent"}`}>
@@ -369,7 +401,7 @@ export default function DeveloperStudioPage() {
           <button type="button" onClick={() => setIdeFullscreen(false)} className="ml-auto shrink-0 rounded px-2.5 py-1.5 text-[11px] text-slate-300 hover:bg-white/10">Exit full screen</button>
         </div>
         <div className="min-h-0 flex-1">
-          {terminalIds.map(id => <DeveloperTerminal key={id} baseUrl={settings.baseUrl} active={activeTerminalId === id} fill autoConnect />)}
+          {terminalIds.map(id => <DeveloperTerminal key={id} baseUrl={settings.baseUrl} active={activeTerminalId === id} fill />)}
           {terminalIds.length === 0 && <div className="flex h-full items-center justify-center text-xs text-slate-400">No terminal sessions. Choose + New Terminal to start one.</div>}
         </div>
       </section>}
