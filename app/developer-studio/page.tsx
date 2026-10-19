@@ -123,6 +123,7 @@ export default function DeveloperStudioPage() {
   const [ideFullscreen, setIdeFullscreen] = useState(false);
   const [explorerVisible, setExplorerVisible] = useState(true);
   const [terminalVisible, setTerminalVisible] = useState(true);
+  const [editorDropActive, setEditorDropActive] = useState(false);
   const [terminalIds, setTerminalIds] = useState<number[]>([1]);
   const [activeTerminalId, setActiveTerminalId] = useState(1);
   const nextTerminalId = useRef(2);
@@ -317,6 +318,12 @@ export default function DeveloperStudioPage() {
       <button
         type="button"
         onClick={() => file.directory ? void toggleFolder(file.path) : void openFile(file.path)}
+        draggable={!file.directory}
+        onDragStart={event => {
+          if (file.directory) return;
+          event.dataTransfer.setData("application/x-picd-repository-file", file.path);
+          event.dataTransfer.effectAllowed = "copy";
+        }}
         disabled={loading}
         aria-expanded={file.directory ? expanded : undefined}
         className={`mb-0.5 flex w-full items-center gap-2 rounded-lg py-2 pr-3 text-left text-xs ${selected === file.path ? "bg-[var(--picd-page-accent)]/15 text-[var(--picd-page-accent)]" : "text-[var(--picd-page-text)] hover:bg-[var(--picd-page-bg)]"} disabled:opacity-50`}
@@ -351,20 +358,51 @@ export default function DeveloperStudioPage() {
     {pullRequest && <div className="mb-4 rounded-xl border border-[var(--picd-success)] bg-[var(--picd-page-surface)] px-4 py-3 text-sm"><p className="font-semibold text-[var(--picd-success)]">Pull request created</p><p className="mt-1 text-[var(--picd-page-muted)]">{pullRequest.branch && `Branch: ${pullRequest.branch} · `}{pullRequest.commit && `Commit: ${pullRequest.commit}`}</p><a className="mt-2 inline-block font-semibold text-[var(--picd-page-accent)] underline" href={pullRequest.url} target="_blank" rel="noreferrer">Open pull request for review</a></div>}
 
     <div className={ideFullscreen
-      ? `fixed inset-0 z-[200] grid h-[100dvh] min-h-0 ${terminalVisible ? "grid-rows-[minmax(0,1fr)_minmax(180px,32vh)]" : "grid-rows-[minmax(0,1fr)]"} gap-2 bg-[var(--picd-page-bg)] p-2`
-      : "grid min-h-[620px] gap-4 xl:grid-cols-[270px_minmax(0,1fr)]"}>
-      <div className={ideFullscreen
-        ? `grid min-h-0 gap-2 ${explorerVisible ? "xl:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"}`
-        : "contents"}>
-      {(!ideFullscreen || explorerVisible) &&
-      <section className={`${PANEL} flex ${ideFullscreen ? "min-h-0 rounded-none" : "min-h-[400px]"} flex-col overflow-hidden`}>
-        <div className="flex items-center justify-between border-b border-[var(--picd-page-border)] px-4 py-3"><span className="text-xs font-bold uppercase tracking-wider">Repository explorer</span><span className="text-[10px] text-[var(--picd-page-muted)]">/{repository}</span></div>
-        <div className="flex-1 overflow-y-auto p-2">{renderFileTree(files)}{!files.length && <p className="p-3 text-xs text-[var(--picd-page-muted)]">{loading ? "Loading…" : "No supported files in this repository."}</p>}</div>
-        <div className="border-t border-[var(--picd-page-border)] p-3 text-[10px] leading-5 text-[var(--picd-page-muted)]">Only files supported by the backend are listed. Files must already exist in the repository.</div>
-      </section>
-      }
+      ? "fixed inset-0 z-[200] grid h-[100dvh] min-h-0 gap-2 bg-[var(--picd-page-bg)] p-2"
+      : "grid min-h-[620px] gap-4 xl:grid-cols-[270px_minmax(0,1fr)]"}
+      style={ideFullscreen ? {
+        gridTemplateRows: terminalVisible ? "minmax(0, 1fr) minmax(180px, 32vh)" : "minmax(0, 1fr) 0px",
+        transition: "grid-template-rows 300ms ease-in-out",
+      } : undefined}
+    >
+      <div
+        className={ideFullscreen ? "grid min-h-0 gap-2 transition-[grid-template-columns] duration-300 ease-in-out motion-reduce:transition-none" : "contents"}
+        style={ideFullscreen ? {
+          gridTemplateColumns: explorerVisible ? "280px minmax(0, 1fr)" : "0px minmax(0, 1fr)",
+          transition: "grid-template-columns 300ms ease-in-out",
+        } : undefined}
+      >
+      <div
+        aria-hidden={ideFullscreen && !explorerVisible}
+        className={`min-w-0 overflow-hidden transition-[opacity,transform] duration-300 ease-in-out motion-reduce:transition-none ${ideFullscreen && !explorerVisible ? "pointer-events-none -translate-x-3 opacity-0" : "opacity-100"}`}
+      >
+        <section className={`${PANEL} flex ${ideFullscreen ? "h-full min-h-0 w-[280px] rounded-none" : "min-h-[400px]"} flex-col overflow-hidden`}>
+          <div className="flex items-center justify-between border-b border-[var(--picd-page-border)] px-4 py-3"><span className="text-xs font-bold uppercase tracking-wider">Repository explorer</span><span className="text-[10px] text-[var(--picd-page-muted)]">/{repository}</span></div>
+          <div className="flex-1 overflow-y-auto p-2">{renderFileTree(files)}{!files.length && <p className="p-3 text-xs text-[var(--picd-page-muted)]">{loading ? "Loading…" : "No supported files in this repository."}</p>}</div>
+          <div className="border-t border-[var(--picd-page-border)] p-3 text-[10px] leading-5 text-[var(--picd-page-muted)]">Only files supported by the backend are listed. Files must already exist in the repository.</div>
+        </section>
+      </div>
 
-      <section className={`${PANEL} flex min-w-0 flex-col overflow-hidden ${ideFullscreen ? "min-h-0 rounded-none" : ""}`}>
+      <section
+        className={`${PANEL} relative flex min-w-0 flex-col overflow-hidden ${ideFullscreen ? "min-h-0 rounded-none" : ""} ${editorDropActive ? "ring-2 ring-inset ring-[var(--picd-page-accent)]" : ""}`}
+        onDragOver={event => {
+          if (!event.dataTransfer.types.includes("application/x-picd-repository-file")) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+          setEditorDropActive(true);
+        }}
+        onDragLeave={event => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setEditorDropActive(false);
+        }}
+        onDrop={event => {
+          const path = event.dataTransfer.getData("application/x-picd-repository-file");
+          if (!path) return;
+          event.preventDefault();
+          setEditorDropActive(false);
+          void openFile(path);
+        }}
+      >
+        {editorDropActive && <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-[var(--picd-page-accent)] bg-[var(--picd-page-bg)]/90 text-sm font-semibold text-[var(--picd-page-accent)]">Drop file to open in editor</div>}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--picd-page-border)] px-4 py-3">
           <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wider">Code editor{current && <span className="ml-2 font-normal normal-case text-[var(--picd-page-muted)]">{languageLabel(current.path)}</span>}</p><p className="mt-1 truncate text-[11px] text-[var(--picd-page-muted)]">{current?.path || "Choose a file from the repository tree"}{current && current.content !== current.savedContent ? " · modified" : ""}</p></div>
           <div className="flex flex-wrap gap-2">
@@ -390,7 +428,7 @@ export default function DeveloperStudioPage() {
         {!reviewing && <div className="border-t border-[var(--picd-page-border)] px-4 py-2 text-[10px] text-[var(--picd-page-muted)]">Monaco editor · edits remain in this browser until submitted as a GitHub pull request.</div>}
       </section>
       </div>
-      {ideFullscreen && <section aria-label="Integrated terminal panel" className={`${terminalVisible ? "flex" : "hidden"} min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--picd-page-border)] bg-[#10151e]`}>
+      {ideFullscreen && <section aria-label="Integrated terminal panel" className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--picd-page-border)] bg-[#10151e] transition-[opacity,transform] duration-300 ease-in-out motion-reduce:transition-none" style={{ opacity: terminalVisible ? 1 : 0, transform: terminalVisible ? "scaleY(1)" : "scaleY(0)", transformOrigin: "top" }}>
         <div className="flex min-h-11 items-center gap-1 overflow-x-auto border-b border-white/10 px-2 text-white">
           <span className="shrink-0 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Terminal</span>
           {terminalIds.map(id => <div key={id} className={`flex shrink-0 items-center rounded-t-md border border-b-0 ${activeTerminalId === id ? "border-white/15 bg-white/10" : "border-transparent"}`}>

@@ -2,7 +2,7 @@
   "app/developer-studio/page.tsx -> @/components/developer/DeveloperTerminal": {
     "id": 8360,
     "files": [
-      "static/chunks/8360.05c38931cf03c449.js"
+      "static/chunks/8360.d53fd9bf49ea53ec.js"
     ]
   },
   "app/developer-studio/page.tsx -> @monaco-editor/react": {

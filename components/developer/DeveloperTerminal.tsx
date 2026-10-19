@@ -18,7 +18,7 @@ export default function DeveloperTerminal({ baseUrl, active = true, fill = false
   const outputRef = useRef<HTMLPreElement>(null);
   const historyPosition = useRef(0);
   const [status, setStatus] = useState<DeveloperTerminalStatus | null>(null);
-  const [mode, setMode] = useState<TerminalMode>("cloud");
+  const [mode, setMode] = useState<TerminalMode>("local");
   const [command, setCommand] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [transcript, setTranscript] = useState("");
@@ -35,9 +35,8 @@ export default function DeveloperTerminal({ baseUrl, active = true, fill = false
     fetchDeveloperTerminalStatus(loadSettings()).then(result => {
       if (cancelled) return;
       setStatus(result);
-      const availableMode = result.modes.local ? "local" : result.modes.cloud ? "cloud" : null;
-      if (availableMode) {
-        setMode(availableMode);
+      if (result.modes.local || result.modes.cloud) {
+        setMode(result.modes.local ? "local" : "cloud");
         setDetail(`${result.note}${result.workspace ? ` Workspace: ${result.workspace}` : ""}`);
       } else {
         setDetail(result.note || "Terminal execution is disabled. Enable a secure local or cloud terminal on the backend.");
