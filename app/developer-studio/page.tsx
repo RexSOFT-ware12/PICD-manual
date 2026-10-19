@@ -8,6 +8,11 @@ import {
   fetchDeveloperGithubFiles,
   fetchDeveloperGithubStatus,
   loadSettings,
+  fetchDeveloperTerminalStatus,
+  fetchDeveloperTerminalJob,
+  runDeveloperTerminalCommand,
+  type DeveloperTerminalStatus,
+  type DeveloperTerminalJob,
   type DeveloperGithubFile,
   type DeveloperGithubFileItem,
   type DeveloperGithubStatus,
@@ -63,6 +68,14 @@ export default function DeveloperStudioPage() {
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [pullRequest, setPullRequest] = useState<{ url: string; branch?: string; commit?: string } | null>(null);
+  const [terminalStatus, setTerminalStatus] = useState<DeveloperTerminalStatus | null>(null);
+  const [terminalMode, setTerminalMode] = useState<"cloud" | "local">("cloud");
+  const [terminalCommand, setTerminalCommand] = useState("");
+  const [terminalJobId, setTerminalJobId] = useState("");
+  const [terminalJob, setTerminalJob] = useState<DeveloperTerminalJob | null>(null);
+  const [terminalHistory, setTerminalHistory] = useState<string[]>([]);
+  const [terminalError, setTerminalError] = useState("");
+  const [terminalRunning, setTerminalRunning] = useState(false);
   const current = buffers[selected];
   const dirtyPaths = Object.values(buffers).filter(file => file.content !== file.savedContent);
   const dirty = dirtyPaths.length > 0;
@@ -103,6 +116,28 @@ export default function DeveloperStudioPage() {
   }, [settings]);
 
   useEffect(() => { void loadInitial(); }, [loadInitial]);
+  useEffect(() => {
+    let active = true;
+    fetchDeveloperTerminalStatus(settings).then(value => { if (active) setTerminalStatus(value); }).catch(e => { if (active) setTerminalError(errorMessage(e)); });
+    return () => { active = false; };
+  }, [settings]);
+  useEffect(() => {
+    if (!terminalJobId || !terminalRunning) return;
+    let active = true;
+    const poll = async () => {
+      try {
+        const job = await fetchDeveloperTerminalJob(settings, terminalJobId);
+        if (!active) return;
+        setTerminalJob(job);
+        if (job.status !== "running") setTerminalRunning(false);
+      } catch (e) {
+        if (active) { setTerminalError(errorMessage(e)); setTerminalRunning(false); }
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => { void poll(); }, 800);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [settings, terminalJobId, terminalRunning]);
 
   const openFile = async (path: string) => {
     setError("");
@@ -187,6 +222,23 @@ export default function DeveloperStudioPage() {
     }
   };
 
+  const executeTerminal = async () => {
+    const command = terminalCommand.trim();
+    if (!command || terminalRunning) return;
+    setTerminalError("");
+    setTerminalRunning(true);
+    setTerminalJob(null);
+    setTerminalHistory(items => [...items, `${terminalMode === "cloud" ? "[cloud]" : "[local]"} $ ${command}`]);
+    setTerminalCommand("");
+    try {
+      const started = await runDeveloperTerminalCommand(settings, command, terminalMode);
+      setTerminalJobId(started.job_id);
+    } catch (e) {
+      setTerminalRunning(false);
+      setTerminalError(errorMessage(e));
+    }
+  };
+
   const goUp = () => {
     const parts = folder.split("/").filter(Boolean);
     parts.pop();
@@ -242,5 +294,20 @@ export default function DeveloperStudioPage() {
         {!reviewing && <div className="border-t border-[var(--picd-page-border)] px-4 py-2 text-[10px] text-[var(--picd-page-muted)]">Edits remain in this browser until submitted as a pull request; they are not written to Render’s filesystem.</div>}
       </section>
     </div>
+
+    <section className={`${PANEL} mt-4 overflow-hidden`}>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--picd-page-border)] px-4 py-3">
+        <div><p className="text-xs font-bold uppercase tracking-wider">Integrated terminal</p><p className="mt-1 text-[11px] text-[var(--picd-page-muted)]">Backend workspace · command sessions · output polling</p></div>
+        <div className="flex items-center gap-2"><label className="text-[11px] text-[var(--picd-page-muted)]" htmlFor="terminal-mode">Execution</label><select id="terminal-mode" value={terminalMode} onChange={e => setTerminalMode(e.target.value as "cloud" | "local")} className="rounded-lg border border-[var(--picd-page-border)] bg-[var(--picd-page-surface)] px-3 py-2 text-xs text-[var(--picd-page-text)]"><option value="cloud">Cloud sandbox</option><option value="local">Local workstation</option></select><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${terminalStatus?.modes?.[terminalMode] ? "bg-[var(--picd-success)]/10 text-[var(--picd-success)]" : "bg-[var(--picd-warning)]/10 text-[var(--picd-warning)]"}`}>{terminalStatus?.modes?.[terminalMode] ? "Available" : "Not configured"}</span></div>
+      </div>
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_250px]">
+        <div className="min-w-0">
+          <pre className="h-64 overflow-auto whitespace-pre-wrap break-words bg-[#10151d] p-4 font-mono text-xs leading-5 text-[#d5e2f0]" aria-live="polite">{[...terminalHistory, ...(terminalJob?.output ? [terminalJob.output] : []), ...(terminalRunning ? ["\nRunning…"] : terminalJob ? [`\n[exit ${terminalJob.exit_code ?? "?"}] ${terminalJob.status}`] : [])].join("\n") || "PICD Developer Studio terminal ready. Enter a command below."}</pre>
+          <form className="flex gap-2 border-t border-[var(--picd-page-border)] p-3" onSubmit={e => { e.preventDefault(); void executeTerminal(); }}><span className="self-center font-mono text-xs text-[var(--picd-page-accent)]">$</span><input value={terminalCommand} onChange={e => setTerminalCommand(e.target.value)} placeholder="python --version, pytest, node --version…" className="min-w-0 flex-1 rounded-lg border border-[var(--picd-page-border)] bg-[var(--picd-page-surface)] px-3 py-2 font-mono text-xs text-[var(--picd-page-text)] outline-none focus:border-[var(--picd-page-accent)]" disabled={terminalRunning}/><button className="rounded-lg bg-[var(--picd-page-accent)] px-4 py-2 text-xs font-bold text-white disabled:opacity-40" disabled={!terminalCommand.trim() || terminalRunning || !terminalStatus?.modes?.[terminalMode]}>{terminalRunning ? "Running…" : "Run"}</button></form>
+          {terminalError && <p role="alert" className="px-4 pb-3 text-xs text-[var(--picd-error)]">{terminalError}</p>}
+        </div>
+        <aside className="border-t border-[var(--picd-page-border)] p-4 text-xs lg:border-l lg:border-t-0"><p className="font-semibold">Environment</p><p className="mt-2 text-[var(--picd-page-muted)]">{terminalStatus?.note || "Checking terminal configuration…"}</p><div className="mt-4 space-y-2"><p>Cloud Docker: <strong>{terminalStatus?.modes?.docker_available ? "Detected" : "Not detected"}</strong></p><p>Cloud sandbox: <strong>{terminalStatus?.modes?.cloud ? "Enabled" : "Disabled"}</strong></p><p>Local agent: <strong>{terminalStatus?.modes?.local ? "Enabled" : "Disabled"}</strong></p></div><button className={`${BUTTON} mt-4 w-full`} onClick={() => { setTerminalHistory([]); setTerminalJob(null); setTerminalError(""); }}>Clear terminal</button><p className="mt-3 text-[10px] leading-5 text-[var(--picd-page-muted)]">Commands run with the permissions of the selected execution environment. Cloud execution has no network access and is container-isolated. This first terminal transport runs one command per session; interactive TTY input and live stdin are a subsequent upgrade.</p></aside>
+      </div>
+    </section>
   </div></main></AppShell>;
 }

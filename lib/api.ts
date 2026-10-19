@@ -294,6 +294,26 @@ export const createDeveloperGithubPullRequest = (
   body: { title: string; body: string; base_sha: string; files: DeveloperGithubPullRequestFile[] }
 ) => postJson<DeveloperGithubPullRequestResponse>("/developer/github/pull-request", s, body);
 
+export interface DeveloperTerminalStatus {
+  modes: { cloud: boolean; local: boolean; docker_available: boolean; image: string };
+  workspace: string;
+  note: string;
+}
+export interface DeveloperTerminalJob {
+  job_id: string;
+  mode: "cloud" | "local";
+  command: string;
+  status: "running" | "success" | "failed";
+  output: string;
+  exit_code: number | null;
+}
+export const fetchDeveloperTerminalStatus = (s: ConnectionSettings) =>
+  request<DeveloperTerminalStatus>("/developer/terminal/status", s);
+export const runDeveloperTerminalCommand = (s: ConnectionSettings, command: string, mode: "cloud" | "local") =>
+  postJson<{ job_id: string; status: string; mode: string }>("/developer/terminal/run", s, { command, mode });
+export const fetchDeveloperTerminalJob = (s: ConnectionSettings, jobId: string) =>
+  request<DeveloperTerminalJob>(`/developer/terminal/jobs/${encodeURIComponent(jobId)}`, s);
+
 export function fetchStats(settings: ConnectionSettings, signal?: AbortSignal) {
   return request<StatsResponse>("/monitor/stats", settings, signal);
 }
