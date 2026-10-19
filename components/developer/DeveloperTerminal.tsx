@@ -27,7 +27,12 @@ export default function DeveloperTerminal({ baseUrl }: Props) {
       url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
       url.searchParams.set("ticket", payload.ticket);
       const ws = new WebSocket(url); socket.current = ws;
-      ws.onopen = () => { setState("connected"); setDetail("Connected to the local PICD workstation."); terminal.current?.writeln("\r\n\x1b[32mPICD Developer Studio terminal connected.\x1b[0m\r\n"); };
+      ws.onopen = () => {
+        setState("connected");
+        setDetail("Connected. Type a command in the terminal and press Enter. Commands run on the machine hosting the local agent.");
+        terminal.current?.writeln("\r\n\x1b[32mPICD Developer Studio terminal connected.\x1b[0m\r\n");
+        terminal.current?.focus();
+      };
       ws.onmessage = event => terminal.current?.write(String(event.data));
       ws.onerror = () => { setState("error"); setDetail("WebSocket connection failed. Check the local agent and network access."); };
       ws.onclose = () => { setState("disconnected"); setDetail("Terminal disconnected."); };
