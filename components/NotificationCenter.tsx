@@ -7,6 +7,7 @@ import { loadNotificationSound, playNotificationSound } from "@/lib/notification
 
 export default function NotificationCenter() {
   const [items, setItems] = useState<AlertItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [ringing, setRinging] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -40,10 +41,11 @@ export default function NotificationCenter() {
     const controller = new AbortController();
     inFlight.current = controller;
     try {
-      const next = (await fetchAlerts(s, 50)).items;
+      const result = await fetchAlerts(s, 50);
       if (controller.signal.aborted) return;
-      setItems(next);
-      announce(next);
+      setItems(result.items);
+      setUnreadCount(result.unread);
+      announce(result.items);
     } catch {}
   }, [announce]);
 
@@ -66,14 +68,27 @@ export default function NotificationCenter() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const unread = items.filter(x => !x.read).length;
-  const read = async (id: string) => { try { await markAlertRead(loadSettings(), id); setItems(v => v.map(x => x.id === id ? {...x, read:true} : x)); } catch {} };
-  const readAll = async () => { try { await markAllAlertsRead(loadSettings()); setItems(v => v.map(x => ({...x, read:true}))); } catch {} };
+  const unread = unreadCount;
+  const read = async (id: string) => {
+    try {
+      await markAlertRead(loadSettings(), id);
+      const wasUnread = items.some(x => x.id === id && !x.read);
+      setItems(v => v.map(x => x.id === id ? {...x, read:true} : x));
+      if (wasUnread) setUnreadCount(v => Math.max(0, v - 1));
+    } catch {}
+  };
+  const readAll = async () => {
+    try {
+      await markAllAlertsRead(loadSettings());
+      setItems(v => v.map(x => ({...x, read:true})));
+      setUnreadCount(0);
+    } catch {}
+  };
 
   return <div className="relative" ref={ref}>
-    <button onClick={() => setOpen(v => !v)} aria-label="Notifications" className={`picd-notification-trigger relative z-[101] flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink/70 shadow-sm transition hover:bg-paper hover:text-ink ${ringing ? "notification-ring" : ""}`}>
+    <button onClick={() => setOpen(v => !v)} aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"} className={`picd-notification-trigger relative z-[101] flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink/70 shadow-sm transition hover:bg-paper hover:text-ink ${ringing ? "notification-ring" : ""}`}>
       <span className="text-lg" aria-hidden="true">🔔</span>
-      {unread > 0 && <span className="absolute right-1 top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-brick px-1 text-[9px] font-bold text-paper">{unread > 9 ? "9+" : unread}</span>}
+      {unread > 0 && <span className="absolute right-1 top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-brick px-1 text-[9px] font-bold text-paper">{unread}</span>}
     </button>
     {open && <div className="absolute right-0 top-12 z-[1000] w-[380px] overflow-hidden rounded-2xl border border-line bg-paper text-ink shadow-2xl">
       <div className="flex items-center justify-between border-b border-line px-4 py-3"><div><p className="font-display text-sm font-semibold">Notifications</p><p className="text-[10px] text-ink/35">Incoming scans, completions and failures</p></div><button onClick={readAll} disabled={!unread} className="text-[10px] font-semibold text-blueprint disabled:opacity-30">Mark all read</button></div>
