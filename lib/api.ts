@@ -191,7 +191,7 @@ export function saveSettings(settings: ConnectionSettings) {
   window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status?: number;
   constructor(message: string, status?: number) {
     super(message);
@@ -230,10 +230,69 @@ async function request<T>(
     if (res.status === 401) {
       throw new ApiError("Authentication required or session expired.", 401);
     }
-    throw new ApiError(`Backend returned ${res.status}`, res.status);
+    let detail = `Backend returned ${res.status}`;
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {}
+    throw new ApiError(detail, res.status);
   }
   return res.json() as Promise<T>;
 }
+
+export interface DeveloperGithubStatus {
+  configured?: boolean;
+  ok?: boolean;
+  owner?: string;
+  repo?: string;
+  repository?: string;
+  base_branch: string;
+  base_sha?: string;
+}
+
+export interface DeveloperGithubFileItem {
+  name: string;
+  path: string;
+  directory: boolean;
+  size?: number;
+}
+
+export interface DeveloperGithubFiles {
+  items: DeveloperGithubFileItem[];
+}
+
+export interface DeveloperGithubFile {
+  path: string;
+  content: string;
+  sha: string;
+  base_sha: string;
+}
+
+export interface DeveloperGithubPullRequestFile {
+  path: string;
+  content: string;
+  sha: string;
+}
+
+export interface DeveloperGithubPullRequestResponse {
+  branch?: string;
+  commit_sha?: string;
+  pull_request_url?: string;
+  url?: string;
+  html_url?: string;
+  pr_url?: string;
+}
+
+export const fetchDeveloperGithubStatus = (s: ConnectionSettings) =>
+  request<DeveloperGithubStatus>("/developer/github/status", s);
+export const fetchDeveloperGithubFiles = (s: ConnectionSettings, path = "") =>
+  request<DeveloperGithubFiles>(`/developer/github/files?path=${encodeURIComponent(path)}`, s);
+export const fetchDeveloperGithubFile = (s: ConnectionSettings, path: string) =>
+  request<DeveloperGithubFile>(`/developer/github/file?path=${encodeURIComponent(path)}`, s);
+export const createDeveloperGithubPullRequest = (
+  s: ConnectionSettings,
+  body: { title: string; body: string; base_sha: string; files: DeveloperGithubPullRequestFile[] }
+) => postJson<DeveloperGithubPullRequestResponse>("/developer/github/pull-request", s, body);
 
 export function fetchStats(settings: ConnectionSettings, signal?: AbortSignal) {
   return request<StatsResponse>("/monitor/stats", settings, signal);
@@ -313,7 +372,6 @@ export function isAbortError(e: unknown): boolean {
   return e instanceof DOMException && e.name === "AbortError";
 }
 
-export { ApiError };
 
 export interface TriggerResponse {
   scan_id: string;
