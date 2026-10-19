@@ -16,7 +16,10 @@
     "konva": "^9.3.18",
     "react-konva": "^18.2.10",
     "lucide-react": "^0.468.0",
-    "three": "^0.170.0"
+    "three": "^0.170.0",
+    "@monaco-editor/react": "^4.7.0",
+    "@xterm/xterm": "^5.5.0",
+    "@xterm/addon-fit": "^0.10.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.9",

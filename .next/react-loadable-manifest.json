@@ -1,4 +1,18 @@
 {
+  "app/developer-studio/page.tsx -> @/components/developer/DeveloperTerminal": {
+    "id": 8360,
+    "files": [
+      "static/css/d8195771658dcda0.css",
+      "static/chunks/ba16dcd3.99fff8867e831c4d.js",
+      "static/chunks/8360.2c471226407d907f.js"
+    ]
+  },
+  "app/developer-studio/page.tsx -> @monaco-editor/react": {
+    "id": 2289,
+    "files": [
+      "static/chunks/2289.114f6cdb419cec2f.js"
+    ]
+  },
   "app/duf-preview/page.tsx -> @/components/Workspace": {
     "id": 7686,
     "files": [

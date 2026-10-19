@@ -1,5 +1,29 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+
+const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false, loading: () => <div className="flex min-h-[420px] items-center justify-center text-sm text-[var(--picd-page-muted)]">Loading code editor…</div> });
+const DeveloperTerminal = dynamic(() => import("@/components/developer/DeveloperTerminal"), { ssr: false });
+let extendScriptProviderRegistered = false;
+function registerEditorProviders(_editor: unknown, monaco: any) {
+  if (extendScriptProviderRegistered) return;
+  extendScriptProviderRegistered = true;
+  monaco.languages.registerCompletionItemProvider("javascript", {
+    triggerCharacters: ["."],
+    provideCompletionItems(model: any, position: any) {
+      if (!model.uri.path.toLowerCase().endsWith(".jsx")) return { suggestions: [] };
+      const word = model.getWordUntilPosition(position);
+      const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn };
+      const snippets = [
+        ["Photoshop active document", "app.activeDocument", "Get the active Photoshop document"],
+        ["Photoshop save options", "var saveOptions = new PhotoshopSaveOptions();", "Create Photoshop save options"],
+        ["Photoshop execute action", "app.executeAction(charIDToTypeID(\"Mk  \"), new ActionDescriptor(), DialogModes.NO);", "Execute a Photoshop Action Manager command"],
+        ["Photoshop document loop", "for (var i = 0; i < app.documents.length; i++) {\n    var doc = app.documents[i];\n    \n}", "Loop through open Photoshop documents"],
+      ];
+      return { suggestions: snippets.map(([label, insertText, detail]) => ({ label, kind: monaco.languages.CompletionItemKind.Snippet, insertText, insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail, range })) };
+    }
+  });
+}
 import AppShell from "@/components/AppShell";
 import {
   ApiError,
@@ -8,11 +32,6 @@ import {
   fetchDeveloperGithubFiles,
   fetchDeveloperGithubStatus,
   loadSettings,
-  fetchDeveloperTerminalStatus,
-  fetchDeveloperTerminalJob,
-  runDeveloperTerminalCommand,
-  type DeveloperTerminalStatus,
-  type DeveloperTerminalJob,
   type DeveloperGithubFile,
   type DeveloperGithubFileItem,
   type DeveloperGithubStatus,
@@ -21,6 +40,21 @@ import {
 type FileBuffer = DeveloperGithubFile & { savedContent: string };
 const PANEL = "rounded-2xl border border-[var(--picd-page-border)] bg-[var(--picd-page-surface)]";
 const BUTTON = "rounded-lg border border-[var(--picd-page-border)] px-3 py-2 text-xs font-semibold text-[var(--picd-page-text)] hover:bg-[var(--picd-page-bg)] disabled:cursor-not-allowed disabled:opacity-40";
+
+function editorLanguage(path: string) {
+  const ext = path.split(".").pop()?.toLowerCase();
+  if (ext === "py") return "python";
+  if (["js", "jsx"].includes(ext || "")) return "javascript";
+  if (["ts", "tsx"].includes(ext || "")) return "typescript";
+  if (ext === "jsxinc" || ext === "jsx") return "javascript";
+  if (ext === "json") return "json";
+  if (["yml", "yaml"].includes(ext || "")) return "yaml";
+  if (ext === "md") return "markdown";
+  if (ext === "css") return "css";
+  if (ext === "html") return "html";
+  if (ext === "sh") return "shell";
+  return "plaintext";
+}
 
 function errorMessage(error: unknown) {
   const status = error instanceof ApiError ? error.status : undefined;
@@ -67,15 +101,8 @@ export default function DeveloperStudioPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [runningExtendScript, setRunningExtendScript] = useState(false);
   const [pullRequest, setPullRequest] = useState<{ url: string; branch?: string; commit?: string } | null>(null);
-  const [terminalStatus, setTerminalStatus] = useState<DeveloperTerminalStatus | null>(null);
-  const [terminalMode, setTerminalMode] = useState<"cloud" | "local">("cloud");
-  const [terminalCommand, setTerminalCommand] = useState("");
-  const [terminalJobId, setTerminalJobId] = useState("");
-  const [terminalJob, setTerminalJob] = useState<DeveloperTerminalJob | null>(null);
-  const [terminalHistory, setTerminalHistory] = useState<string[]>([]);
-  const [terminalError, setTerminalError] = useState("");
-  const [terminalRunning, setTerminalRunning] = useState(false);
   const current = buffers[selected];
   const dirtyPaths = Object.values(buffers).filter(file => file.content !== file.savedContent);
   const dirty = dirtyPaths.length > 0;
@@ -116,28 +143,6 @@ export default function DeveloperStudioPage() {
   }, [settings]);
 
   useEffect(() => { void loadInitial(); }, [loadInitial]);
-  useEffect(() => {
-    let active = true;
-    fetchDeveloperTerminalStatus(settings).then(value => { if (active) setTerminalStatus(value); }).catch(e => { if (active) setTerminalError(errorMessage(e)); });
-    return () => { active = false; };
-  }, [settings]);
-  useEffect(() => {
-    if (!terminalJobId || !terminalRunning) return;
-    let active = true;
-    const poll = async () => {
-      try {
-        const job = await fetchDeveloperTerminalJob(settings, terminalJobId);
-        if (!active) return;
-        setTerminalJob(job);
-        if (job.status !== "running") setTerminalRunning(false);
-      } catch (e) {
-        if (active) { setTerminalError(errorMessage(e)); setTerminalRunning(false); }
-      }
-    };
-    void poll();
-    const timer = window.setInterval(() => { void poll(); }, 800);
-    return () => { active = false; window.clearInterval(timer); };
-  }, [settings, terminalJobId, terminalRunning]);
 
   const openFile = async (path: string) => {
     setError("");
@@ -191,6 +196,23 @@ export default function DeveloperStudioPage() {
     setPullRequest(null);
   };
 
+  const runExtendScript = async () => {
+    if (!current || !current.path.toLowerCase().endsWith(".jsx")) return;
+    setRunningExtendScript(true); setError(""); setMessage("Sending the active ExtendScript to the local Photoshop agent…");
+    try {
+      const csrf = typeof window !== "undefined" ? window.sessionStorage.getItem("picd-csrf") : null;
+      const response = await fetch(`${settings.baseUrl.replace(/\/$/, "")}/developer/extendscript/run`, {
+        method: "POST", credentials: "include", cache: "no-store",
+        headers: { "Content-Type": "application/json", ...(csrf ? { "X-CSRF-Token": csrf } : {}) },
+        body: JSON.stringify({ filename: current.path.split("/").pop(), content: current.content }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.detail || `Photoshop execution failed (${response.status})`);
+      setMessage(`${result.message || "ExtendScript completed."}${result.result ? ` Output: ${result.result}` : ""}`);
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not run ExtendScript."); setMessage(""); }
+    finally { setRunningExtendScript(false); }
+  };
+
   const createPullRequest = async () => {
     if (!status || dirtyPaths.length === 0 || dirtyPaths.length > 20) return;
     setSubmitting(true);
@@ -219,23 +241,6 @@ export default function DeveloperStudioPage() {
       setError(errorMessage(e));
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const executeTerminal = async () => {
-    const command = terminalCommand.trim();
-    if (!command || terminalRunning) return;
-    setTerminalError("");
-    setTerminalRunning(true);
-    setTerminalJob(null);
-    setTerminalHistory(items => [...items, `${terminalMode === "cloud" ? "[cloud]" : "[local]"} $ ${command}`]);
-    setTerminalCommand("");
-    try {
-      const started = await runDeveloperTerminalCommand(settings, command, terminalMode);
-      setTerminalJobId(started.job_id);
-    } catch (e) {
-      setTerminalRunning(false);
-      setTerminalError(errorMessage(e));
     }
   };
 
@@ -279,8 +284,9 @@ export default function DeveloperStudioPage() {
       <section className={`${PANEL} flex min-w-0 flex-col overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--picd-page-border)] px-4 py-3">
           <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wider">Code editor</p><p className="mt-1 truncate text-[11px] text-[var(--picd-page-muted)]">{current?.path || "Choose a file from the repository tree"}{current && current.content !== current.savedContent ? " · modified" : ""}</p></div>
-          <div className="flex gap-2"><button className={BUTTON} onClick={() => current && updateContent(current.savedContent)} disabled={!current || current.content === current.savedContent}>Discard file changes</button><button className={BUTTON} onClick={() => { setReviewing(true); setError(""); }} disabled={!dirty || dirtyPaths.length > 20}>Review changes</button></div>
+          <div className="flex flex-wrap gap-2">{current?.path.toLowerCase().endsWith(".jsx") && <button className={BUTTON} onClick={runExtendScript} disabled={runningExtendScript || loading}>{runningExtendScript ? "Running in Photoshop…" : "Run in Photoshop"}</button>}<button className={BUTTON} onClick={() => current && updateContent(current.savedContent)} disabled={!current || current.content === current.savedContent}>Discard file changes</button><button className={BUTTON} onClick={() => { setReviewing(true); setError(""); }} disabled={!dirty || dirtyPaths.length > 20}>Review changes</button></div>
         </div>
+        {!reviewing && Object.keys(buffers).length > 0 && <div className="flex overflow-x-auto border-b border-[var(--picd-page-border)]">{Object.values(buffers).map(file => <button key={file.path} onClick={() => setSelected(file.path)} className={`max-w-56 truncate border-r border-[var(--picd-page-border)] px-3 py-2 text-[11px] ${selected === file.path ? "bg-[var(--picd-page-bg)] text-[var(--picd-page-accent)]" : "text-[var(--picd-page-muted)]"}`}>{file.path.split("/").pop()}{file.content !== file.savedContent ? " ●" : ""}</button>)}</div>}
         {reviewing && dirty ? <div className="max-h-[600px] flex-1 overflow-auto p-4">
           <h2 className="mb-3 font-semibold">Review edited-file diff</h2>
           <div className="space-y-4">{dirtyPaths.map(file => <div key={file.path} className="overflow-hidden rounded-xl border border-[var(--picd-page-border)]">
@@ -290,24 +296,10 @@ export default function DeveloperStudioPage() {
           {dirtyPaths.length > 20 && <p className="mt-3 text-sm text-[var(--picd-error)]">A pull request can include no more than 20 edited files.</p>}
           <div className="mt-5 grid gap-3 md:grid-cols-2"><label className="text-xs font-semibold">Commit / pull request title<input value={title} onChange={e => setTitle(e.target.value)} maxLength={200} required placeholder="Describe the change" className="mt-1 w-full rounded-lg border border-[var(--picd-page-border)] bg-[var(--picd-page-surface)] px-3 py-2 text-sm font-normal text-[var(--picd-page-text)] outline-none focus:border-[var(--picd-page-accent)]" /></label><label className="text-xs font-semibold">Description <span className="font-normal text-[var(--picd-page-muted)]">(optional)</span><textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Context for reviewers" className="mt-1 w-full rounded-lg border border-[var(--picd-page-border)] bg-[var(--picd-page-surface)] px-3 py-2 text-sm font-normal text-[var(--picd-page-text)] outline-none focus:border-[var(--picd-page-accent)]" /></label></div>
           <div className="mt-4 flex flex-wrap items-center gap-3"><button className="rounded-lg bg-[var(--picd-page-accent)] px-4 py-2 text-xs font-bold text-[var(--picd-page-surface)] disabled:opacity-40" onClick={createPullRequest} disabled={!title.trim() || !status?.base_branch || !dirtyPaths.length || dirtyPaths.length > 20 || submitting}>{submitting ? "Creating pull request…" : "Create pull request"}</button><button className={BUTTON} onClick={() => setReviewing(false)} disabled={submitting}>Back to editor</button><span className="text-[11px] text-[var(--picd-page-muted)]">Creates a branch and pull request. It does not write directly to the deploy branch.</span></div>
-        </div> : <textarea spellCheck={false} value={current?.content ?? ""} onChange={e => updateContent(e.target.value)} disabled={!current || loading} placeholder="Open a supported repository file to edit it here…" className="min-h-[420px] flex-1 resize-y border-0 bg-[var(--picd-page-surface)] p-5 font-mono text-[12px] leading-6 text-[var(--picd-page-text)] outline-none placeholder:text-[var(--picd-page-muted)]" />}
-        {!reviewing && <div className="border-t border-[var(--picd-page-border)] px-4 py-2 text-[10px] text-[var(--picd-page-muted)]">Edits remain in this browser until submitted as a pull request; they are not written to Render’s filesystem.</div>}
+        </div> : <div className="min-h-[420px] flex-1">{current ? <MonacoEditor height="min(62vh, 720px)" theme="vs-dark" language={editorLanguage(current.path)} value={current.content} onMount={registerEditorProviders} onChange={value => updateContent(value ?? "")} options={{ automaticLayout: true, minimap: { enabled: true }, fontSize: 13, tabSize: 4, wordWrap: "off", scrollBeyondLastLine: false, renderWhitespace: "selection", stickyScroll: { enabled: true }, bracketPairColorization: { enabled: true }, quickSuggestions: true, suggestOnTriggerCharacters: true }} /> : <div className="flex h-[420px] items-center justify-center text-sm text-[var(--picd-page-muted)]">Open a repository file to start editing.</div>}</div>}
+        {!reviewing && <div className="border-t border-[var(--picd-page-border)] px-4 py-2 text-[10px] text-[var(--picd-page-muted)]">Monaco editor · edits remain in this browser until submitted as a GitHub pull request.</div>}
       </section>
     </div>
-
-    <section className={`${PANEL} mt-4 overflow-hidden`}>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--picd-page-border)] px-4 py-3">
-        <div><p className="text-xs font-bold uppercase tracking-wider">Integrated terminal</p><p className="mt-1 text-[11px] text-[var(--picd-page-muted)]">Backend workspace · command sessions · output polling</p></div>
-        <div className="flex items-center gap-2"><label className="text-[11px] text-[var(--picd-page-muted)]" htmlFor="terminal-mode">Execution</label><select id="terminal-mode" value={terminalMode} onChange={e => setTerminalMode(e.target.value as "cloud" | "local")} className="rounded-lg border border-[var(--picd-page-border)] bg-[var(--picd-page-surface)] px-3 py-2 text-xs text-[var(--picd-page-text)]"><option value="cloud">Cloud sandbox</option><option value="local">Local workstation</option></select><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${terminalStatus?.modes?.[terminalMode] ? "bg-[var(--picd-success)]/10 text-[var(--picd-success)]" : "bg-[var(--picd-warning)]/10 text-[var(--picd-warning)]"}`}>{terminalStatus?.modes?.[terminalMode] ? "Available" : "Not configured"}</span></div>
-      </div>
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_250px]">
-        <div className="min-w-0">
-          <pre className="h-64 overflow-auto whitespace-pre-wrap break-words bg-[#10151d] p-4 font-mono text-xs leading-5 text-[#d5e2f0]" aria-live="polite">{[...terminalHistory, ...(terminalJob?.output ? [terminalJob.output] : []), ...(terminalRunning ? ["\nRunning…"] : terminalJob ? [`\n[exit ${terminalJob.exit_code ?? "?"}] ${terminalJob.status}`] : [])].join("\n") || "PICD Developer Studio terminal ready. Enter a command below."}</pre>
-          <form className="flex gap-2 border-t border-[var(--picd-page-border)] p-3" onSubmit={e => { e.preventDefault(); void executeTerminal(); }}><span className="self-center font-mono text-xs text-[var(--picd-page-accent)]">$</span><input value={terminalCommand} onChange={e => setTerminalCommand(e.target.value)} placeholder="python --version, pytest, node --version…" className="min-w-0 flex-1 rounded-lg border border-[var(--picd-page-border)] bg-[var(--picd-page-surface)] px-3 py-2 font-mono text-xs text-[var(--picd-page-text)] outline-none focus:border-[var(--picd-page-accent)]" disabled={terminalRunning}/><button className="rounded-lg bg-[var(--picd-page-accent)] px-4 py-2 text-xs font-bold text-white disabled:opacity-40" disabled={!terminalCommand.trim() || terminalRunning || !terminalStatus?.modes?.[terminalMode]}>{terminalRunning ? "Running…" : "Run"}</button></form>
-          {terminalError && <p role="alert" className="px-4 pb-3 text-xs text-[var(--picd-error)]">{terminalError}</p>}
-        </div>
-        <aside className="border-t border-[var(--picd-page-border)] p-4 text-xs lg:border-l lg:border-t-0"><p className="font-semibold">Environment</p><p className="mt-2 text-[var(--picd-page-muted)]">{terminalStatus?.note || "Checking terminal configuration…"}</p><div className="mt-4 space-y-2"><p>Cloud Docker: <strong>{terminalStatus?.modes?.docker_available ? "Detected" : "Not detected"}</strong></p><p>Cloud sandbox: <strong>{terminalStatus?.modes?.cloud ? "Enabled" : "Disabled"}</strong></p><p>Local agent: <strong>{terminalStatus?.modes?.local ? "Enabled" : "Disabled"}</strong></p></div><button className={`${BUTTON} mt-4 w-full`} onClick={() => { setTerminalHistory([]); setTerminalJob(null); setTerminalError(""); }}>Clear terminal</button><p className="mt-3 text-[10px] leading-5 text-[var(--picd-page-muted)]">Commands run with the permissions of the selected execution environment. Cloud execution has no network access and is container-isolated. This first terminal transport runs one command per session; interactive TTY input and live stdin are a subsequent upgrade.</p></aside>
-      </div>
-    </section>
+    <DeveloperTerminal baseUrl={settings.baseUrl} />
   </div></main></AppShell>;
 }
