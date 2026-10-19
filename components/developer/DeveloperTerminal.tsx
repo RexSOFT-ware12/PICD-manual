@@ -49,8 +49,8 @@ export default function DeveloperTerminal({ baseUrl, active = true, fill = false
       ws.onopen = () => {
         if (socket.current !== ws) return;
         updateState("connected", "Interactive terminal connected.");
-        terminal.current?.writeln("\r\n\x1b[32mPICD terminal connected. Type commands below.\x1b[0m\r\n");
-        terminal.current?.focus();
+        terminal.current?.writeln("\r\n\x1b[32mPICD terminal connected. Click in the terminal and type a command.\x1b[0m\r\n");
+        window.requestAnimationFrame(() => terminal.current?.focus());
         const instance = terminal.current;
         if (instance) ws.send(JSON.stringify({ type: "resize", cols: instance.cols, rows: instance.rows }));
       };
@@ -169,7 +169,13 @@ export default function DeveloperTerminal({ baseUrl, active = true, fill = false
         <button type="button" className="rounded-md border border-white/20 px-3 py-1.5 text-xs hover:bg-white/10" onClick={() => terminal.current?.clear()}>Clear</button>
       </div>
     </div>
-    <div ref={host} className={`${fill ? "min-h-0 flex-1" : "h-64"} w-full p-2`} />
-    <p className="border-t border-white/10 px-4 py-2 text-[10px] text-slate-400">{detail} The terminal runs through the configured backend PTY. Never expose a local terminal agent directly to the public internet.</p>
+    <div
+      ref={host}
+      onMouseDown={() => terminal.current?.focus()}
+      onClick={() => terminal.current?.focus()}
+      aria-label="Interactive terminal. Click here to type commands."
+      className={`${fill ? "min-h-0 flex-1" : "h-64"} w-full cursor-text p-2`}
+    />
+    <p role="status" aria-live="polite" className="border-t border-white/10 bg-[#171f2b] px-4 py-2 text-[11px] leading-5 text-white">{detail} The terminal runs through the configured backend PTY. Never expose a local terminal agent directly to the public internet.</p>
   </section>;
 }
