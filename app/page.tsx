@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, CheckCircle2, Layers3, Timer, TrendingUp } from "lucide-react";
+import { Activity, AlertCircle, Check, CheckCircle2, Info, Layers3, Timer, TrendingUp, X } from "lucide-react";
 import {
   fetchScans,
   fetchStats,
@@ -200,6 +200,12 @@ export default function Home() {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (!triggerMessage || triggerMessageTone(triggerMessage) !== "success") return;
+    const timeout = window.setTimeout(() => setTriggerMessage(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [triggerMessage]);
 
   const dateRange = useCallback((): { from?: string; to?: string } => {
     const now = new Date();
@@ -491,6 +497,44 @@ export default function Home() {
   return (
     <AppShell>
       <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-paper px-4 py-5 sm:px-6 sm:py-6">
+        {triggerMessage && (() => {
+          const tone = triggerMessageTone(triggerMessage);
+          const remoteRelease = triggerMessage.startsWith("Selected scan released");
+          const isError = tone === "error";
+          return (
+            <div
+              role={isError ? "alert" : "status"}
+              aria-live={isError ? "assertive" : "polite"}
+              className={`dashboard-action-toast fixed right-5 top-[78px] z-[110] flex w-[min(390px,calc(100vw-2.5rem))] items-start gap-3 rounded-2xl border p-4 shadow-xl ${
+                isError
+                  ? "border-brick/15 bg-white text-brick"
+                  : tone === "success"
+                  ? "border-sage/20 bg-white text-ink"
+                  : "border-blueprint/15 bg-white text-ink"
+              }`}
+            >
+              <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                isError ? "bg-brick/10 text-brick" : tone === "success" ? "bg-sage/10 text-sage" : "bg-blueprint/10 text-blueprint"
+              }`}>
+                {isError ? <AlertCircle size={17} /> : tone === "success" ? <Check size={17} strokeWidth={2.5} /> : <Info size={17} />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-ink">{remoteRelease ? "Scan released" : isError ? "Action couldn’t be completed" : tone === "success" ? "Action complete" : "Update"}</p>
+                <p className="mt-1 break-words text-xs leading-relaxed text-ink/55">
+                  {remoteRelease ? "The remote processing agent will pick it up shortly." : triggerMessage}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Dismiss notification"
+                onClick={() => setTriggerMessage(null)}
+                className="rounded-lg p-1 text-ink/35 transition hover:bg-ink/5 hover:text-ink/70"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          );
+        })()}
         <div className="mb-3 flex items-center justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
@@ -611,18 +655,6 @@ export default function Home() {
             <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="rounded-full border border-line bg-white px-2 py-1 text-[11px]"  name="field_page_3"/>
           </>}
         </div>
-
-        {triggerMessage && (
-          <div className={`mb-3 animate-fade-in-up rounded-lg border px-3 py-2 text-xs ${
-            triggerMessageTone(triggerMessage) === "success"
-              ? "border-sage/20 bg-sage/10 text-sage"
-              : triggerMessageTone(triggerMessage) === "error"
-              ? "border-brick/20 bg-brick/10 text-brick"
-              : "border-blueprint/20 bg-blueprint/10 text-blueprint"
-          }`}>
-            {triggerMessage}
-          </div>
-        )}
 
         {settings.baseUrl && (
           <div className="mb-3 flex min-h-[22px] items-center gap-3 text-[11px] text-ink/40">
