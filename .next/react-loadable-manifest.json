@@ -1,18 +1,4 @@
 {
-  "app/developer-studio/github/page.tsx -> @/components/developer/DeveloperTerminal": {
-    "id": 8360,
-    "files": [
-      "static/css/d8195771658dcda0.css",
-      "static/chunks/ba16dcd3.99fff8867e831c4d.js",
-      "static/chunks/8360.4d69c10c005e5a12.js"
-    ]
-  },
-  "app/developer-studio/github/page.tsx -> @monaco-editor/react": {
-    "id": 2289,
-    "files": [
-      "static/chunks/2289.114f6cdb419cec2f.js"
-    ]
-  },
   "app/duf-preview/page.tsx -> @/components/Workspace": {
     "id": 7686,
     "files": [
@@ -31,7 +17,7 @@
   "app/photo-workspace/page.tsx -> @/components/Editor": {
     "id": 9275,
     "files": [
-      "static/chunks/6656.09325d80f433db06.js",
+      "static/chunks/6656.e7c50c93fd10dde8.js",
       "static/chunks/9275.230f219988fb973b.js"
     ]
   }
