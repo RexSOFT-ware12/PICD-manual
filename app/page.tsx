@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { Activity, CheckCircle2, Layers3, Timer, TrendingUp } from "lucide-react";
 import {
   fetchScans,
   fetchStats,
@@ -483,6 +484,9 @@ export default function Home() {
     : lastUpdated
     ? "ok"
     : "connecting";
+  const successRate = stats && stats.counts.completed + stats.counts.failed > 0
+    ? `${((stats.counts.completed / (stats.counts.completed + stats.counts.failed)) * 100).toFixed(1)}%`
+    : null;
 
   return (
     <AppShell>
@@ -518,18 +522,79 @@ export default function Home() {
         </div>
 
         {settings.baseUrl && !initialLoading && (
-          <div className="mb-3 grid grid-cols-6 gap-2">
-            <div className="col-span-2 rounded-xl border border-line bg-white px-4 py-3 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div><p className="text-[9px] font-bold uppercase tracking-[.16em] text-ink/30">System health</p><p className="mt-1 font-display text-lg font-semibold">{health?.status === "maintenance" ? "Maintenance" : health?.status === "ok" ? "Operational" : "Checking…"}</p></div>
-                <span className={`h-3 w-3 rounded-full ${health?.status === "ok" ? "bg-sage shadow-[0_0_0_5px_rgba(74,137,96,.10)]" : health?.status === "maintenance" ? "bg-amber" : "bg-brick"}`} />
+          <div className="mb-3 grid shrink-0 grid-cols-2 gap-2 xl:grid-cols-6">
+            <div
+              className={`dashboard-summary-card dashboard-summary-enter relative col-span-2 isolate overflow-hidden rounded-2xl border px-4 py-3 text-white shadow-lg ${health?.status === "ok" ? "border-[#76b99a]/30 bg-gradient-to-br from-[#19354e] via-[#214766] to-[#28645f]" : health?.status === "maintenance" ? "border-amber/30 bg-gradient-to-br from-[#473a2c] via-[#5d4830] to-[#684b32]" : "border-white/10 bg-gradient-to-br from-[#26364b] via-[#34455c] to-[#475369]"}`}
+              style={{ animationDelay: "0ms" }}
+            >
+              <div className="dashboard-health-orb pointer-events-none absolute -right-8 -top-12 h-36 w-36 rounded-full bg-white/10 blur-2xl" />
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_110%,rgba(255,255,255,.12),transparent_48%)]" />
+              <div className="relative flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 shadow-inner">
+                    <Activity size={19} strokeWidth={1.8} className="text-white/90" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold uppercase tracking-[.18em] text-white/55">System health</p>
+                    <p className="mt-1 truncate font-display text-lg font-semibold tracking-tight">
+                      {health?.status === "maintenance" ? "Maintenance" : health?.status === "ok" ? "Operational" : "Checking…"}
+                    </p>
+                  </div>
+                </div>
+                <span className={`mt-1 flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-semibold uppercase tracking-wider ${health?.status === "ok" ? "border-emerald-200/20 bg-emerald-200/10 text-emerald-100" : health?.status === "maintenance" ? "border-amber-100/20 bg-amber-100/10 text-amber-100" : "border-white/15 bg-white/5 text-white/55"}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${health?.status === "ok" ? "bg-emerald-300 dashboard-health-pulse" : health?.status === "maintenance" ? "bg-amber-300" : "bg-white/40"}`} />
+                  {health?.status === "ok" ? "Live" : health?.status === "maintenance" ? "Attention" : "Syncing"}
+                </span>
               </div>
-              <p className="mt-1 text-[10px] text-ink/35">API · Mongo · worker runtime</p>
+              <div className="relative mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-2">
+                <p className="text-[10px] text-white/55">API <span className="px-1 text-white/25">·</span> Mongo <span className="px-1 text-white/25">·</span> worker runtime</p>
+                <span className="flex items-center gap-1 text-[9px] font-medium text-white/45"><span className="h-1 w-1 rounded-full bg-current" /> auto-refresh</span>
+              </div>
             </div>
-            <div className="rounded-xl border border-line bg-white px-4 py-3 shadow-sm"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-ink/30">Queue</p><p className="mt-1 font-display text-lg font-semibold tabular-nums">{stats?.queue_depth ?? "—"}</p><p className="text-[10px] text-ink/35">waiting for release</p></div>
-            <div className="rounded-xl border border-line bg-white px-4 py-3 shadow-sm"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-ink/30">Completed today</p><p className="mt-1 font-display text-lg font-semibold tabular-nums">{stats?.completed_today ?? "—"}</p><p className="text-[10px] text-ink/35">successful runs</p></div>
-            <div className="rounded-xl border border-line bg-white px-4 py-3 shadow-sm"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-ink/30">Avg processing</p><p className="mt-1 font-display text-lg font-semibold tabular-nums">{stats?.avg_processing_seconds != null ? `${Math.floor(stats.avg_processing_seconds / 60)}m ${Math.round(stats.avg_processing_seconds % 60)}s` : "—"}</p><p className="text-[10px] text-ink/35">last 500 runs</p></div>
-            <div className="rounded-xl border border-line bg-white px-4 py-3 shadow-sm"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-ink/30">Success rate</p><p className="mt-1 font-display text-lg font-semibold tabular-nums">{stats && stats.counts.completed + stats.counts.failed > 0 ? `${((stats.counts.completed / (stats.counts.completed + stats.counts.failed)) * 100).toFixed(1)}%` : "—"}</p><p className="text-[10px] text-ink/35">completed vs failed</p></div>
+
+            <div className="dashboard-summary-card dashboard-summary-enter group relative isolate overflow-hidden rounded-2xl border border-line/80 bg-white px-3.5 py-3 shadow-sm" style={{ animationDelay: "55ms" }}>
+              <div className="dashboard-card-wash absolute inset-0 -z-10 bg-gradient-to-br from-blueprint/[.07] via-transparent to-transparent opacity-70 transition-opacity group-hover:opacity-100" />
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[9px] font-bold uppercase tracking-[.15em] text-ink/40">Queue</p>
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blueprint/[.07] text-blueprint/65 transition duration-300 group-hover:rotate-[-8deg] group-hover:scale-110"><Layers3 size={15} strokeWidth={1.8} /></span>
+              </div>
+              <p className="mt-1 font-display text-2xl font-semibold leading-none tracking-tight text-ink"><AnimatedStat value={stats?.queue_depth ?? null} /></p>
+              <p className="mt-2 text-[10px] text-ink/40">waiting for release</p>
+              <div className="dashboard-card-line absolute bottom-0 left-0 h-[2px] w-full origin-left bg-gradient-to-r from-blueprint/60 via-blueprint/20 to-transparent" />
+            </div>
+
+            <div className="dashboard-summary-card dashboard-summary-enter group relative isolate overflow-hidden rounded-2xl border border-line/80 bg-white px-3.5 py-3 shadow-sm" style={{ animationDelay: "110ms" }}>
+              <div className="dashboard-card-wash absolute inset-0 -z-10 bg-gradient-to-br from-sage/[.09] via-transparent to-transparent opacity-70 transition-opacity group-hover:opacity-100" />
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[9px] font-bold uppercase tracking-[.13em] text-ink/40">Completed today</p>
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-sage/[.09] text-sage/75 transition duration-300 group-hover:rotate-[8deg] group-hover:scale-110"><CheckCircle2 size={15} strokeWidth={1.8} /></span>
+              </div>
+              <p className="mt-1 font-display text-2xl font-semibold leading-none tracking-tight text-ink"><AnimatedStat value={stats?.completed_today ?? null} /></p>
+              <p className="mt-2 text-[10px] text-ink/40">successful runs</p>
+              <div className="dashboard-card-line absolute bottom-0 left-0 h-[2px] w-full origin-left bg-gradient-to-r from-sage/65 via-sage/20 to-transparent" />
+            </div>
+
+            <div className="dashboard-summary-card dashboard-summary-enter group relative isolate overflow-hidden rounded-2xl border border-line/80 bg-white px-3.5 py-3 shadow-sm" style={{ animationDelay: "165ms" }}>
+              <div className="dashboard-card-wash absolute inset-0 -z-10 bg-gradient-to-br from-amber/[.1] via-transparent to-transparent opacity-70 transition-opacity group-hover:opacity-100" />
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[9px] font-bold uppercase tracking-[.13em] text-ink/40">Avg processing</p>
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber/[.1] text-amber/80 transition duration-300 group-hover:rotate-[-8deg] group-hover:scale-110"><Timer size={15} strokeWidth={1.8} /></span>
+              </div>
+              <p className="mt-1 font-display text-2xl font-semibold leading-none tracking-tight text-ink tabular-nums">{stats?.avg_processing_seconds != null ? `${Math.floor(stats.avg_processing_seconds / 60)}m ${Math.round(stats.avg_processing_seconds % 60)}s` : "—"}</p>
+              <p className="mt-2 text-[10px] text-ink/40">last 500 runs</p>
+              <div className="dashboard-card-line absolute bottom-0 left-0 h-[2px] w-full origin-left bg-gradient-to-r from-amber/65 via-amber/20 to-transparent" />
+            </div>
+
+            <div className="dashboard-summary-card dashboard-summary-enter group relative isolate overflow-hidden rounded-2xl border border-line/80 bg-white px-3.5 py-3 shadow-sm" style={{ animationDelay: "220ms" }}>
+              <div className="dashboard-card-wash absolute inset-0 -z-10 bg-gradient-to-br from-[#6b77a5]/[.1] via-transparent to-transparent opacity-70 transition-opacity group-hover:opacity-100" />
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[9px] font-bold uppercase tracking-[.13em] text-ink/40">Success rate</p>
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#6b77a5]/[.1] text-[#68749c] transition duration-300 group-hover:rotate-[8deg] group-hover:scale-110"><TrendingUp size={15} strokeWidth={1.8} /></span>
+              </div>
+              <p className="mt-1 font-display text-2xl font-semibold leading-none tracking-tight text-ink tabular-nums">{successRate ?? "—"}</p>
+              <p className="mt-2 text-[10px] text-ink/40">completed vs failed</p>
+              <div className="dashboard-card-line absolute bottom-0 left-0 h-[2px] w-full origin-left bg-gradient-to-r from-[#6b77a5]/65 via-[#6b77a5]/20 to-transparent" />
+            </div>
           </div>
         )}
 
