@@ -1,5 +1,5 @@
 {
-  "app/developer-studio/page.tsx -> @/components/developer/DeveloperTerminal": {
+  "app/developer-studio/github/page.tsx -> @/components/developer/DeveloperTerminal": {
     "id": 8360,
     "files": [
       "static/css/d8195771658dcda0.css",
@@ -7,7 +7,7 @@
       "static/chunks/8360.4d69c10c005e5a12.js"
     ]
   },
-  "app/developer-studio/page.tsx -> @monaco-editor/react": {
+  "app/developer-studio/github/page.tsx -> @monaco-editor/react": {
     "id": 2289,
     "files": [
       "static/chunks/2289.114f6cdb419cec2f.js"
