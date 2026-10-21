@@ -179,7 +179,10 @@ export default function ScanDetailModal({
   return createPortal(
     <div
       className="fixed inset-0 z-[100] flex animate-modal-backdrop items-center justify-center bg-ink/40 p-4"
-      onClick={onClose}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
     >
       <div
         role="dialog"
