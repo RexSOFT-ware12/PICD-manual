@@ -25,6 +25,8 @@ values and a persistent disk mounted at `/data`.
 4. Open **Developer Studio** and sign in using the Theia service credentials.
    The dashboard login modal establishes a short-lived, HttpOnly session;
    credentials are not included in the IDE URL or stored by the dashboard.
+   Use **Full screen** in the IDE workspace to expand the editor to the full
+   display; press Escape or choose **Exit full screen** to return.
 
 The first Theia build installs the browser application and its plugins. The
 Render service must have enough memory for Theia and needs persistent storage

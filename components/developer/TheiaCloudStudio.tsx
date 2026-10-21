@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import { KeyRound, LogOut, Rocket, X } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Expand, KeyRound, LogOut, Minimize2, Rocket, X } from "lucide-react";
 import AppShell from "@/components/AppShell";
 
 function configuredTheiaGatewayUrl() {
@@ -27,6 +27,16 @@ export default function TheiaCloudStudio() {
   const [ideLoginError, setIdeLoginError] = useState("");
   const [ideActionError, setIdeActionError] = useState("");
   const [ideLoginBusy, setIdeLoginBusy] = useState(false);
+  const [ideFullScreen, setIdeFullScreen] = useState(false);
+  const ideWorkspaceRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const updateFullScreenState = () => {
+      setIdeFullScreen(document.fullscreenElement === ideWorkspaceRef.current);
+    };
+    document.addEventListener("fullscreenchange", updateFullScreenState);
+    return () => document.removeEventListener("fullscreenchange", updateFullScreenState);
+  }, []);
 
   useEffect(() => {
     if (!THEIA_GATEWAY_URL) {
@@ -109,14 +119,27 @@ export default function TheiaCloudStudio() {
     }
   };
 
+  const toggleIdeFullScreen = async () => {
+    setIdeActionError("");
+    try {
+      if (document.fullscreenElement === ideWorkspaceRef.current) {
+        await document.exitFullscreen();
+      } else {
+        await ideWorkspaceRef.current?.requestFullscreen();
+      }
+    } catch (error) {
+      setIdeActionError(error instanceof Error ? error.message : "Could not change the IDE workspace display mode.");
+    }
+  };
+
   return (
     <AppShell>
       <main className="flex h-full min-h-0 flex-col overflow-y-auto bg-[var(--picd-page-bg)] px-5 py-5 text-[var(--picd-page-text)] md:px-7">
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[.22em] text-[var(--picd-page-accent)]">PICDs / Engineering</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">Developer Studio</h1>
-            <p className="mt-1 text-xs text-[var(--picd-page-muted)]">Theia cloud IDE · persistent workspace · GitHub CLI</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight">PICD Codes</h1>
+            <p className="mt-1 text-xs text-[var(--picd-page-muted)]">Developer Studio · Theia cloud IDE · persistent workspace · GitHub CLI</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {THEIA_GATEWAY_URL && ideAuthenticated && <button type="button" onClick={signOutFromIde} className="inline-flex items-center gap-2 rounded-xl border border-[var(--picd-page-border)] bg-[var(--picd-page-surface)] px-4 py-2.5 text-xs font-semibold text-[var(--picd-page-text)] transition hover:bg-[var(--picd-page-bg)]"><LogOut size={14} /> Sign out of IDE</button>}
@@ -141,16 +164,22 @@ export default function TheiaCloudStudio() {
             <p className="mt-3 text-xs text-[var(--picd-page-muted)]">See <code className="font-mono">THEIA-CLOUD-IDE.md</code> for setup and GitHub sign-in steps.</p>
           </section>
         ) : (
-          <div className="relative min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-[var(--picd-page-border)] bg-[#10151e] shadow-lg">
+          <div ref={ideWorkspaceRef} className="relative min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-[var(--picd-page-border)] bg-[#10151e] shadow-lg">
             {ideAuthenticated ? (
-              <iframe
-                title="PICD Theia Cloud IDE"
-                src={THEIA_GATEWAY_URL}
-                className="absolute inset-0 h-full w-full border-0"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads allow-popups allow-popups-to-escape-sandbox allow-pointer-lock"
-                allow="clipboard-read; clipboard-write"
-                referrerPolicy="no-referrer"
-              />
+              <>
+                <button type="button" onClick={() => void toggleIdeFullScreen()} aria-label={ideFullScreen ? "Exit full screen workspace" : "Open full screen workspace"} title={ideFullScreen ? "Exit full screen" : "Open full screen"} className="absolute right-3 top-3 z-10 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-slate-950/80 px-3 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur transition hover:bg-slate-900">
+                  {ideFullScreen ? <Minimize2 size={14} /> : <Expand size={14} />}
+                  {ideFullScreen ? "Exit full screen" : "Full screen"}
+                </button>
+                <iframe
+                  title="PICD Codes workspace"
+                  src={THEIA_GATEWAY_URL}
+                  className="absolute inset-0 h-full w-full border-0"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads allow-popups allow-popups-to-escape-sandbox allow-pointer-lock"
+                  allow="clipboard-read; clipboard-write"
+                  referrerPolicy="no-referrer"
+                />
+              </>
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center text-white">
                 <KeyRound size={28} className="text-sky-300" />
