@@ -46,7 +46,7 @@ function statusExplanation(status: string, error: string | null): string {
 
 function DetailImage({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md bg-ink/5">
+    <div className="scan-detail-image relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-ink/5">
       <Image
         src={src}
         alt={alt}
@@ -76,7 +76,7 @@ function ClientMeasurements({ input }: { input: NonNullable<ScanSummary["client_
   const visible = rows.filter(([, value]) => value !== null && value !== undefined && value !== "");
   if (!visible.length) return null;
   return (
-    <section className="mt-4 rounded-xl border border-line bg-white/55 p-4">
+    <section className="scan-detail-section mt-4 rounded-xl border border-line bg-white/55 p-4">
       <div className="mb-3">
         <p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">Client input</p>
         <p className="mt-0.5 text-xs text-ink/45">Measurements supplied for this client and used for processing review.</p>
@@ -187,12 +187,13 @@ export default function ScanDetailModal({
       <div
         role="dialog"
         aria-modal="true"
-        className="animate-modal-panel max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/60 bg-paper p-6 shadow-2xl shadow-ink/20 [will-change:transform,opacity]"
+        className="scan-detail-panel animate-modal-panel max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-white/70 bg-paper p-6 shadow-2xl shadow-ink/25 [will-change:transform,opacity]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="scan-detail-heading -mx-6 -mt-6 mb-5 flex items-start justify-between gap-4 px-6 pb-5 pt-6">
           <div>
-            <p className="font-mono text-xs text-ink/40">{scan.scan_id}</p>
+            <p className="mb-1 text-[9px] font-bold uppercase tracking-[.2em] text-white/45">Scan record</p>
+            <p className="break-all font-mono text-xs tracking-wide text-white/80">{scan.scan_id}</p>
             <span
               className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ${
                 statusColor[shownStatus] ?? "bg-slate/10 text-slate"
@@ -200,19 +201,19 @@ export default function ScanDetailModal({
             >
               {statusLabel[shownStatus] ?? shownStatus}
             </span>
-            <p className="mt-2 max-w-xl text-xs leading-relaxed text-ink/45">{statusExplanation(shownStatus, scan.error)}</p>
+            <p className="mt-2 max-w-xl text-xs leading-relaxed text-white/60">{statusExplanation(shownStatus, scan.error)}</p>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="shrink-0 rounded-full p-1 text-lg leading-none text-ink/40 transition hover:bg-ink/5 hover:text-ink/70"
+            className="shrink-0 rounded-xl border border-white/15 bg-white/[.08] px-3 py-1.5 text-xs font-medium text-white/65 transition hover:border-white/30 hover:bg-white/[.14] hover:text-white"
           >
-            ×
+            Close <span aria-hidden="true" className="ml-1 text-base leading-none">×</span>
           </button>
         </div>
 
         {(scan.front_image_url || scan.side_image_url) && (
-          <div className="mb-4 grid grid-cols-2 gap-3">
+          <div className="scan-detail-images mb-5 grid grid-cols-2 gap-3">
             {frontSrc && (
               <DetailImage src={frontSrc} alt="front" />
             )}
@@ -222,7 +223,7 @@ export default function ScanDetailModal({
           </div>
         )}
 
-        <div className="divide-y divide-line">
+        <div className="scan-detail-meta mb-4 grid grid-cols-2 gap-2">
           <Row label="Client" value={scan.user_id ?? "unknown"} />
           <Row label="Gender" value={scan.gender ?? "—"} />
           <Row label="Created" value={formatDate(scan.created_at)} />
@@ -244,7 +245,7 @@ export default function ScanDetailModal({
           const value = (v?: number | null, suffix = "") => v == null ? "—" : `${Math.round(v * 10) / 10}${suffix}`;
           const pose = (x?: typeof front) => x ? `${value(x.left_arm_deg, "°")} / ${value(x.right_arm_deg, "°")}` : "—";
           const stage = a.stage === "storing_images" ? "Saving images" : a.stage === "analyzing_front" ? "Checking front" : a.stage === "analyzing_side" ? "Checking side" : a.status === "analyzing" ? "Preparing" : "Analysis complete";
-          return <section className="mt-4 rounded-xl border border-line bg-white/55 p-4">
+          return <section className="scan-detail-section mt-4 rounded-xl border border-line bg-white/55 p-4">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">Image quality &amp; pose analysis</p><p className="mt-0.5 text-xs text-ink/45">Detailed checks performed on the incoming front and side images.</p></div>
               <span className={`rounded px-2 py-1 text-[9px] font-bold uppercase tracking-wider ${badge}`}>{state === "analyzing" ? stage : state === "ok" ? "Ready" : state === "warning" ? `${uniqueIssues.length} warning${uniqueIssues.length === 1 ? "" : "s"}` : "Analysis error"}</span>
@@ -260,7 +261,7 @@ export default function ScanDetailModal({
         {scan.client_input && <ClientMeasurements input={scan.client_input} />}
 
         {scan.result?.measurements_output && (
-          <section className="mt-4 rounded-xl border border-sage/20 bg-sage/5 p-4">
+          <section className="scan-detail-section mt-4 rounded-xl border border-sage/20 bg-sage/5 p-4">
             <div className="mb-3"><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-sage">Result measurements</p><p className="mt-0.5 text-xs text-ink/45">Output produced by the Photoshop → Illustrator → Python → DAZ pipeline.</p></div>
             <div className="grid grid-cols-2 gap-x-5 gap-y-1">
               {Object.entries(scan.result.measurements_output).filter(([,v]) => v !== null && v !== undefined).map(([key,value]) => <Row key={key} label={key.replaceAll("_", " ")} value={String(value)} />)}
@@ -269,7 +270,7 @@ export default function ScanDetailModal({
         )}
 
         {scan.result?.global_variables && (
-          <div className="mb-4 rounded-xl border border-line bg-white p-4">
+          <div className="scan-detail-section mb-4 rounded-xl border border-line bg-white p-4">
             <div className="mb-3"><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">Global variables snapshot</p><p className="mt-0.5 text-xs text-ink/45">The client-specific globalVars.json captured from this processing run.</p></div>
             <div className="grid grid-cols-2 gap-x-5 gap-y-1.5">
               {((scan.result.global_variables && Array.isArray(scan.result.global_variables.Measurements)) ? scan.result.global_variables.Measurements : []).filter(x => x && x.label).map((x, i) => <Row key={`${x.label}-${i}`} label={String(x.label)} value={x.value === null || x.value === undefined ? "—" : String(x.value)} />)}
@@ -278,7 +279,7 @@ export default function ScanDetailModal({
         )}
 
         {scan.result?.daz_model && (
-          <section className="mt-3 rounded-xl border border-line bg-white/55 p-4">
+          <section className="scan-detail-section mt-3 rounded-xl border border-line bg-white/55 p-4">
             <div className="mb-3"><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">DAZ result</p></div>
             <Row label="Template" value={scan.result.daz_model.template} />
             <div className="mt-2 grid grid-cols-2 gap-x-5 gap-y-1">
@@ -288,7 +289,7 @@ export default function ScanDetailModal({
           </section>
         )}
 
-        <section className="mt-3 rounded-xl border border-line bg-white/55 p-4">
+        <section className="scan-detail-section mt-3 rounded-xl border border-line bg-white/55 p-4">
           <div className="mb-3"><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">Delivery</p><p className="mt-0.5 text-xs text-ink/45">Downstream result delivery is independent from processing, so a delivery outage never requires re-running the desktop pipeline.</p></div>
           <div className="flex items-center justify-between gap-3">
             <div><p className="text-xs font-semibold text-ink/70">{scan.delivery_status === "delivered" ? "Delivered to Shopdrop" : scan.delivery_status === "failed" ? "Delivery failed" : scan.delivery_status === "sending" ? "Sending…" : "Waiting for delivery"}</p><p className="mt-0.5 font-mono text-[10px] text-ink/35">{formatDate(scan.delivered_at ?? null)}</p></div>
@@ -298,7 +299,7 @@ export default function ScanDetailModal({
           {deliveryState === "done" && <p className="mt-2 rounded bg-sage/10 px-2 py-1.5 text-[11px] font-medium text-sage">Delivery accepted. The board will update on the next refresh.</p>}
         </section>
 
-        <section className="mt-4 rounded-xl border border-line bg-white/55 p-4">
+        <section className="scan-detail-section mt-4 rounded-xl border border-line bg-white/55 p-4">
           <div className="mb-3"><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blueprint/70">Processing timeline</p><p className="mt-0.5 text-xs text-ink/45">A concise audit trail for this scan.</p></div>
           <div className="space-y-3">
             {[

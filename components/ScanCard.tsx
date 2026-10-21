@@ -83,14 +83,17 @@ export default function ScanCard({ scan, style, onRetried, onMoved, draggable = 
           onDropBefore?.(sourceId, scan.scan_id);
         }
       }}
-      className={`${compact ? "p-2" : "p-3"} min-w-0 cursor-pointer animate-fade-in-up rounded-lg border border-line border-l-[3px] bg-white/70 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md ${accentByStatus[scan.status] ?? "border-l-slate"} ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${dragging ? "scale-[.98] opacity-45" : ""}`}
+      className={`scan-board-card ${compact ? "p-2.5" : "p-3"} min-w-0 cursor-pointer animate-fade-in-up rounded-xl border border-line/80 border-l-[3px] bg-white shadow-sm transition-all duration-200 ${accentByStatus[scan.status] ?? "border-l-slate"} ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${dragging ? "scale-[.98] opacity-45" : ""}`}
     >
       {open && <ScanDetailModal scan={scan} displayStatus={displayStatus} onClose={() => setOpen(false)} onRetried={onRetried} />}
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="truncate font-mono text-[11px] text-ink/60">{scan.scan_id.slice(0, 8)}…</span>
-        <div className="flex shrink-0 items-center gap-1">
-          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${shownStatus === "delivered" ? "bg-sage/10 text-sage" : scan.status === "failed" ? "bg-brick/10 text-brick" : scan.status === "processing" ? "bg-amber/10 text-amber" : scan.status === "queued" ? "bg-slate/10 text-slate" : "bg-sage/10 text-sage"}`}>{shownStatus}</span>
-          <span className="font-mono text-[10px] text-ink/40">{timeAgo(scan.status === "queued" ? scan.created_at : scan.updated_at)}</span>
+      <div className="scan-card-heading mb-2.5 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blueprint/[.06] text-[10px] font-bold text-blueprint/65">{scan.scan_id.slice(0, 2).toUpperCase()}</span>
+          <span className="truncate font-mono text-[11px] font-medium tracking-wide text-ink/65">{scan.scan_id.slice(0, 8)}…</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[8px] font-bold uppercase tracking-[.08em] ${shownStatus === "delivered" ? "bg-sage/10 text-sage" : scan.status === "failed" ? "bg-brick/10 text-brick" : scan.status === "processing" ? "bg-amber/10 text-amber" : scan.status === "queued" ? "bg-slate/10 text-slate" : "bg-sage/10 text-sage"}`}><span className={`h-1.5 w-1.5 rounded-full ${scan.status === "failed" ? "bg-brick" : scan.status === "processing" ? "bg-amber animate-pulse" : scan.status === "queued" ? "bg-slate" : "bg-sage"}`} />{shownStatus}</span>
+          <span className="font-mono text-[9px] text-ink/35">{timeAgo(scan.status === "queued" ? scan.created_at : scan.updated_at)}</span>
           {onDelete && scan.status !== "completed" && (
             <button
               type="button"
@@ -112,7 +115,7 @@ export default function ScanCard({ scan, style, onRetried, onMoved, draggable = 
           )}
         </div>
       </div>
-      {(frontSrc || sideSrc) && <div className={`${compact ? "mb-1.5" : "mb-2"} flex gap-1.5`}>{frontSrc && <Thumb src={frontSrc} alt="front" />}{sideSrc && <Thumb src={sideSrc} alt="side" />}</div>}
+      {(frontSrc || sideSrc) && <div className={`scan-card-images ${compact ? "mb-2" : "mb-2.5"} flex gap-2`}>{frontSrc && <Thumb src={frontSrc} alt="front" />}{sideSrc && <Thumb src={sideSrc} alt="side" />}</div>}
       {scan.image_analysis && (() => {
         const a = scan.image_analysis;
         const front = a.card?.front;
@@ -135,7 +138,7 @@ export default function ScanCard({ scan, style, onRetried, onMoved, draggable = 
           {analyzing ? <div className="relative mt-1.5 flex items-center gap-2"><div className="h-1 flex-1 overflow-hidden rounded-full bg-blueprint/10"><div className="h-full rounded-full bg-blueprint/60 transition-[width] duration-500" style={{ width: `${progress}%` }} /></div><span className="w-7 text-right font-mono text-[8px] text-blueprint/60">{progress}%</span></div> : warnings > 0 ? <p className="relative mt-1 truncate text-[9px] text-amber">{a.issues?.[0]}</p> : <p className="relative mt-1 truncate text-[9px] text-ink/40">{front?.gemini_summary || side?.gemini_summary || "Local QC + Gemini review complete"}</p>}
         </div>;
       })()}
-      <div className="flex items-center justify-between gap-2 text-xs"><span className="truncate text-ink/70">{scan.user_id ?? "unknown user"}</span>{scan.gender && <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/50">{scan.gender}</span>}</div>
+      <div className="scan-card-client flex items-center justify-between gap-2 border-t border-line/60 pt-2 text-xs"><span className="truncate font-medium text-ink/75">{scan.user_id ?? "unknown user"}</span>{scan.gender && <span className="shrink-0 rounded-full bg-ink/[.045] px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-ink/45">{scan.gender}</span>}</div>
       {scan.status === "failed" && scan.error && <p className="mt-2 line-clamp-2 break-words rounded bg-brick/10 px-2 py-1 text-[11px] text-brick">{scan.error}</p>}
       {scan.status === "completed" && scan.daz_template && <p className="mt-2 truncate font-mono text-[10px] text-sage">{scan.daz_template}</p>}
       {shownStatus === "delivered" && <p className="mt-2 text-[10px] font-semibold uppercase tracking-[.12em] text-sage">✓ Result delivered</p>}
